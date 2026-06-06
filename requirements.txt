@@ -7,6 +7,7 @@ pydantic-settings
 python-dotenv
 pytest
 pytest-asyncio
+httpx
 httpx2
 ruff
 black
