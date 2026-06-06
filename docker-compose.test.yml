@@ -1,0 +1,10 @@
+services:
+  db:
+    environment:
+      POSTGRES_DB: test_db
+
+  api:
+    environment:
+      ENV: test
+      DATABASE_URL_READER: postgresql://user:pass@db:5432/test_db
+      DATABASE_URL_WRITER: postgresql://user:pass@db:5432/test_db
