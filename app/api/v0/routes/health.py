@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+# Health check endpoint for the OAuth service
 router = APIRouter(prefix="/health", tags=["health"])
 
 @router.get("/")
