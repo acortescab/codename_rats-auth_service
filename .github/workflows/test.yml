@@ -7,39 +7,16 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: user
-          POSTGRES_PASSWORD: pass
-          POSTGRES_DB: db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd="pg_isready -U user"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
+
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Install dependencies
+      - name: Run tests with Docker Compose
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          make test-rebuild
 
-      - name: Run Ruff (lint)
+      - name: Shutdown containers
+        if: always()
         run: |
-          ruff check .
-
-      - name: Run tests
-        run: |
-          pytest -q
+          make test-down
