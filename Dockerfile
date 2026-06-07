@@ -26,10 +26,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Make entrypoint script executable
-RUN chmod +x entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # Expose the port the FastAPI app will run on
 EXPOSE 8000
 
 # Run migrations and start the app
-ENTRYPOINT ["./entrypoint.sh"]
+ENTRYPOINT ["bash","./entrypoint.sh"]
