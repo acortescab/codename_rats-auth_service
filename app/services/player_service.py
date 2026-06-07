@@ -18,7 +18,7 @@ class PlayerService:
         player = self.repo.get_by_device_id(device_id)
 
         if player:
-            self.repo.update_last_login(player.id)
+            self.repo.update_last_login(player)
             return player
 
         name = self.generate_guest_name()

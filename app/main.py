@@ -21,8 +21,6 @@ async def lifespan(app: FastAPI):
     yield 
     print("Closing application resources...")
 
-app = FastAPI(lifespan=lifespan)
-
 def validate_settings(settings):
     """
     Validates the application settings. Raises a RuntimeError if any required settings are missing or invalid.
@@ -34,7 +32,8 @@ def validate_settings(settings):
         raise RuntimeError("DATABASE_URL_READER missing")
     if not os.getenv("DATABASE_URL_WRITER"):
         raise RuntimeError("DATABASE_URL_WRITER missing")
-
+    
+app = FastAPI(lifespan=lifespan)
 app.include_router(health.router, prefix="/v0")
 app.include_router(auth.router, prefix="/v0")
 

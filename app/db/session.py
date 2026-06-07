@@ -36,6 +36,7 @@ def get_write_db():
     finally:
         db.close()
 
+
 def get_read_db():
     """
     Dependency function to get a database session for reading operations. This function is used in FastAPI routes to provide a database session that is properly closed after the request is processed.
