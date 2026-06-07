@@ -1,6 +1,6 @@
-from uuid import UUID, uuid4
-from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean
+import uuid
 from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import Column, String, ForeignKey, DateTime, Boolean
 from datetime import datetime, timezone
 from app.db.base import Base
 
@@ -10,7 +10,7 @@ class RefreshToken(Base):
     """
     __tablename__ = "refresh_tokens"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     player_id = Column(UUID(as_uuid=True), ForeignKey("players.id"), nullable=False)
     token_hash = Column(String, nullable=False, unique=True)
