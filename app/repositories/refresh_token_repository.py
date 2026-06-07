@@ -7,11 +7,12 @@ class RefreshTokenRepository:
     """
     Repository for managing refresh tokens.
     """
-    def __init__(self, write_db: Session):
+    def __init__(self, write_db: Session, read_db: Session):
         """
         Initializes the RefreshTokenRepository with separate read and write database sessions.
         """
         self.write_db = write_db
+        self.read_db = read_db
 
     def create(self, player_id, token, expires_at):
         """
@@ -28,3 +29,11 @@ class RefreshTokenRepository:
         self.write_db.add(db_token)
         self.write_db.commit()
         return db_token
+    
+    def get_by_player_id(self, player_id):
+        """
+        Gets a token by player id
+        """
+        return self.read_db.query(RefreshToken).filter(
+            player_id == player_id
+        ).first()

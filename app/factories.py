@@ -16,12 +16,12 @@ def create_auth_service(write_db, read_db):
     Creates an AuthService instance with a PlayerService and TokenService.
     """
     player_service = create_player_service(write_db, read_db)
-    token_service = create_token_service(write_db)
+    token_service = create_token_service(write_db, read_db)
     return AuthService(player_service, token_service)
 
-def create_token_service(write_db):
+def create_token_service(write_db, read_db):
     """
     Creates a TokenService instance.
     """
-    repo = RefreshTokenRepository(write_db)
+    repo = RefreshTokenRepository(write_db, read_db)
     return TokenService(repo)

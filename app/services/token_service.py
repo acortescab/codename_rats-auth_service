@@ -31,15 +31,16 @@ class TokenService:
         """
         Creates a refresh token for the given player ID. This is a placeholder implementation and should be replaced with actual token generation logic.
         """
+        exp = datetime.now(timezone.utc) + timedelta(days=7)
         payload = {
             "sub": str(player_id),
             "type": "refresh",
-            "exp": datetime.now(timezone.utc) + timedelta(days=7),
+            "exp": exp,
             "iat": datetime.now(timezone.utc)
         }
 
         token = jwt.encode(payload, self.settings.SECRET_KEY, algorithm=self.settings.ALGORITHM)
-        self.refresh_token_repo.create()
+        self.repo.create(player_id, token, exp)
 
         return token
 
