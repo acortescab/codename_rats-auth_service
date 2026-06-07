@@ -1,4 +1,4 @@
-from uuid import UUID, uuid4
+import uuid
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy import Column, String, DateTime
 from datetime import datetime, timezone
@@ -11,7 +11,7 @@ class Player(Base):
     """
     __tablename__ = "players"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     device_id = Column(String, unique=True, nullable=False)
 
     name = Column(String, nullable=False)
