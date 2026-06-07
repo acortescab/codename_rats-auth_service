@@ -1,11 +1,12 @@
 import pytest
-
-from app.main import app as fastapi_app
-from httpx import AsyncClient, ASGITransport
-from app.main import app
-from app.db.session import engine_writer
+from httpx import ASGITransport, AsyncClient
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+from app.db.session import engine_writer
+from app.main import app
+from app.main import app as fastapi_app
+
 
 @pytest.fixture
 def anyio_backend():

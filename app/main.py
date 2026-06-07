@@ -1,9 +1,12 @@
-import sys
 import os
-from fastapi import FastAPI
-from app.core.config import get_settings
-from app.api.v0.routes import health, auth
+import sys
 from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+
+from app.api.v0.routes import auth, health
+from app.core.config import get_settings
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

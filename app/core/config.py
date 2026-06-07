@@ -1,7 +1,9 @@
-from pydantic_settings import BaseSettings
-from pydantic import ConfigDict
 from functools import lru_cache
+
 from dotenv import load_dotenv
+from pydantic import ConfigDict
+from pydantic_settings import BaseSettings
+
 from app.core.security import JWTAlgorithm
 
 # load .env file
@@ -36,7 +38,8 @@ class Settings(BaseSettings):
 @lru_cache
 def get_settings():
     """
-    Retrieves the application settings. This function is cached to ensure that the settings are only loaded once during the application's lifetime.
+    Retrieves the application settings. 
+    This function is cached to ensure that the settings are only loaded once during the application's lifetime.
     Returns: Settings: The application settings.
     """
     return Settings()

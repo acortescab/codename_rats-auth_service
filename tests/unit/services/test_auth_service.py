@@ -1,8 +1,11 @@
-import pytest
-from unittest.mock import Mock
-from app.services.auth_service import AuthService
-from app.schemas.auth import AuthResponse
 import uuid
+from unittest.mock import Mock
+
+import pytest
+
+from app.schemas.auth import AuthResponse
+from app.services.auth_service import AuthService
+
 
 def test_guest_login_success():
     """

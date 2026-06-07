@@ -1,8 +1,9 @@
-from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.repositories.player_repository import PlayerRepository
-from app.services.player_service import PlayerService
+from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.services.auth_service import AuthService
+from app.services.player_service import PlayerService
 from app.services.token_service import TokenService
+
 
 def create_player_service(write_db, read_db):
     """

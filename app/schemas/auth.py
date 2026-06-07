@@ -2,6 +2,7 @@ from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
+
 class GuestLoginRequest(BaseModel):
     """
     Request model for guest login endpoint.
