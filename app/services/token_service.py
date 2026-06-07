@@ -1,8 +1,10 @@
+import uuid
 from datetime import datetime, timedelta, timezone
 
 from jose import jwt
 
 from app.core.config import get_settings
+from app.core.exceptions.auth import InvalidRefreshTokenError
 from app.repositories.refresh_token_repository import RefreshTokenRepository
 
 
@@ -25,27 +27,53 @@ class TokenService:
         """
         payload = {
             "sub": str(player_id),
-            "type": "access",
             "exp": datetime.now(timezone.utc) + timedelta(minutes=30),
             "iat": datetime.now(timezone.utc)
         }
 
         return jwt.encode(payload, self.settings.SECRET_KEY, algorithm=self.settings.ALGORITHM)
+    
+    def refresh_token(self, refresh_token: str):
+        """
+        Create a new refresh token and marks previous as revoked
+        """
+        token = self.decode_token(refresh_token)
+
+        if not token:
+            raise InvalidRefreshTokenError("Invalid token")
+        
+        player_id = token["sub"]
+        jti = token["jti"]
+        
+        stored = self.repo.get_by_jti(jti)
+
+        if not stored or stored.revoked:
+            raise InvalidRefreshTokenError("Not found or invalid token")
+
+        access_token = self.create_access_token(player_id)
+        refresh_token = self.create_refresh_token(player_id)
+
+        stored.revoked = True
+        self.repo.update()
+
+        return {
+            "access_token" : access_token,
+            "refresh_token" : refresh_token
+        }
 
     def create_refresh_token(self, player_id: int) -> str:
         """
         Creates a refresh token for the given player ID. 
         """
-        exp = datetime.now(timezone.utc) + timedelta(days=7)
         payload = {
             "sub": str(player_id),
-            "type": "refresh",
-            "exp": exp,
+            "jti": str(uuid.uuid4()),
+            "exp": datetime.now(timezone.utc) + timedelta(days=7),
             "iat": datetime.now(timezone.utc)
         }
 
         token = jwt.encode(payload, self.settings.SECRET_KEY, algorithm=self.settings.ALGORITHM)
-        self.repo.create(player_id, token, exp)
+        self.repo.create(player_id, payload["jti"], token, payload["exp"])
 
         return token
 

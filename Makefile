@@ -32,3 +32,6 @@ test-rebuild:
 # Shell inside docker container
 shell:
 	docker compose -f $(COMPOSE_FILE_DEV) exec api /bin/sh
+
+shell-db:
+	docker compose -f $(COMPOSE_FILE_DEV) exec db /bin/sh
