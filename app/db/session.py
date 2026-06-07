@@ -1,4 +1,5 @@
 import os
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
@@ -27,7 +28,8 @@ Base = declarative_base()
 
 def get_write_db():
     """
-    Dependency function to get a database session for writing operations. This function is used in FastAPI routes to provide a database session that is properly closed after the request is processed.
+    Dependency function to get a database session for writing operations. 
+    This function is used in FastAPI routes to provide a database session that is properly closed after the request is processed.
     Yields: Session: A SQLAlchemy session for database operations.
     """
     db = SessionLocalWriter()
@@ -39,7 +41,8 @@ def get_write_db():
 
 def get_read_db():
     """
-    Dependency function to get a database session for reading operations. This function is used in FastAPI routes to provide a database session that is properly closed after the request is processed.
+    Dependency function to get a database session for reading operations. 
+    This function is used in FastAPI routes to provide a database session that is properly closed after the request is processed.
     Yields: Session: A SQLAlchemy session for database operations.
     """
     db = SessionLocalReader()

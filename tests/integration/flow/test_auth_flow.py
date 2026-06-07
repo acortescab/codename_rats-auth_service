@@ -1,5 +1,7 @@
 import pytest
-from app.db.session import get_write_db, get_read_db
+
+from app.db.session import get_read_db, get_write_db
+
 
 @pytest.mark.asyncio
 async def test_guest_login_persists_in_db(async_client, get_app, db_session_writer, db_session_reader):

@@ -1,22 +1,27 @@
-from jose import jwt
-from app.core.config import get_settings
 from datetime import datetime, timedelta, timezone
+
+from jose import jwt
+
+from app.core.config import get_settings
 from app.repositories.refresh_token_repository import RefreshTokenRepository
+
 
 class TokenService:
     """
-    Service class for handling token-related operations, such as creating access and refresh tokens. This class provides methods to generate tokens based on player IDs, which can be used for authentication and session management in the application.
+    Service class for handling token-related operations, such as creating access and refresh tokens. 
+    This class provides methods to generate tokens based on player IDs, 
+    which can be used for authentication and session management in the application.
     """
     def __init__(self, repo: RefreshTokenRepository):
         """
-        Initializes the TokenService with necessary configurations. This is a placeholder implementation and should be replaced with actual configuration loading logic.
+        Initializes the TokenService with necessary configurations.
         """
         self.settings = get_settings()
         self.repo = repo
     
     def create_access_token(self, player_id: int) -> str:
         """
-        Creates an access token for the given player ID. This is a placeholder implementation and should be replaced with actual token generation logic.
+        Creates an access token for the given player ID. 
         """
         payload = {
             "sub": str(player_id),
@@ -29,7 +34,7 @@ class TokenService:
 
     def create_refresh_token(self, player_id: int) -> str:
         """
-        Creates a refresh token for the given player ID. This is a placeholder implementation and should be replaced with actual token generation logic.
+        Creates a refresh token for the given player ID. 
         """
         exp = datetime.now(timezone.utc) + timedelta(days=7)
         payload = {
@@ -46,7 +51,7 @@ class TokenService:
 
     def decode_token(self, token: str):
         """
-        Decodes a token and returns the payload. This is a placeholder implementation and should be replaced with actual token decoding logic.
+        Decodes a token and returns the payload. 
         """
         return jwt.decode(
             token,

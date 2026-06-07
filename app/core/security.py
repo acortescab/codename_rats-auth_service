@@ -1,5 +1,6 @@
 from enum import Enum
 
+
 class JWTAlgorithm(str, Enum):
     """
     Enum for Encryptation algorithm

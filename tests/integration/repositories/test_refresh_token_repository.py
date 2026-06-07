@@ -9,10 +9,11 @@ def test_refresh_token_persistence(db_session_writer, db_session_reader):
     - can be retrieved later
     """
 
-    from app.repositories.refresh_token_repository import RefreshTokenRepository
-    from app.repositories.player_repository import PlayerRepository
-    from datetime import datetime, timedelta, timezone
     import hashlib
+    from datetime import datetime, timedelta, timezone
+
+    from app.repositories.player_repository import PlayerRepository
+    from app.repositories.refresh_token_repository import RefreshTokenRepository
 
     repo_player = PlayerRepository(db_session_writer, db_session_reader)
     repo_token = RefreshTokenRepository(db_session_writer, db_session_reader)

@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends
 from typing import Annotated
+
+from fastapi import APIRouter, Depends
+
 from app.dependencies import get_auth_service
 from app.schemas.auth import GuestLoginRequest
-from app.services.auth_service import AuthService, AuthResponse
+from app.services.auth_service import AuthResponse, AuthService
 
 # Authentication routes for the OAuth service
 router = APIRouter(prefix="/auth", tags=["auth"])

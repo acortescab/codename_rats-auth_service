@@ -1,10 +1,15 @@
-from sqlalchemy.orm import Session
-from app.db.models.player import Player
 from datetime import datetime, timezone
+
+from sqlalchemy.orm import Session
+
+from app.db.models.player import Player
+
 
 class PlayerRepository:
     """
-    Repository class for managing player data in the database. This class provides methods for retrieving and creating player records, as well as updating player information such as the last login timestamp.
+    Repository class for managing player data in the database. 
+    This class provides methods for retrieving and creating player records, 
+    as well as updating player information such as the last login timestamp.
     """
     
     def __init__(self, write_db: Session, read_db: Session):

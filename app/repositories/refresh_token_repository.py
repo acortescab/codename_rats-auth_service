@@ -1,7 +1,9 @@
-from sqlalchemy.orm import Session
 import hashlib
 
+from sqlalchemy.orm import Session
+
 from app.db.models.refresh_token import RefreshToken
+
 
 class RefreshTokenRepository:
     """

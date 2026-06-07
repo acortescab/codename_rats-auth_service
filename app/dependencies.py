@@ -1,8 +1,10 @@
-from fastapi import Depends
 from typing import Annotated
-from app.factories import create_auth_service
-from app.db.session import get_write_db, get_read_db
+
+from fastapi import Depends
 from sqlalchemy.orm import Session
+
+from app.db.session import get_read_db, get_write_db
+from app.factories import create_auth_service
 
 WriteDBDep = Annotated[Session, Depends(get_write_db)]
 ReadDBDep = Annotated[Session, Depends(get_read_db)]

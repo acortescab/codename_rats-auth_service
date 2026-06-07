@@ -1,5 +1,7 @@
 from uuid import uuid4
+
 from app.repositories.player_repository import PlayerRepository
+
 
 class PlayerService:
     """

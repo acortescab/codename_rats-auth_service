@@ -2,6 +2,7 @@ from unittest.mock import Mock, patch
 
 from app.services.token_service import TokenService
 
+
 def test_create_access_token_returns_token():
     """
     Tests that create_access_token returns a JWT string

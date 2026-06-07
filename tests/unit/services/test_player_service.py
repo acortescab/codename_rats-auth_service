@@ -1,7 +1,8 @@
+import uuid
 from unittest.mock import Mock
 
 from app.services.player_service import PlayerService
-import uuid
+
 
 def test_get_or_create_guest_existing_player():
     """

@@ -1,9 +1,11 @@
 import uuid
-from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy import Column, String, DateTime
 from datetime import datetime, timezone
 
+from sqlalchemy import Column, DateTime, String
+from sqlalchemy.dialects.postgresql import UUID
+
 from app.db.base import Base
+
 
 class Player(Base):
     """
