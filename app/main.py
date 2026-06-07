@@ -1,11 +1,18 @@
+import os
 import sys
-from fastapi import FastAPI
-from app.core.config import get_settings
-from app.api.v0.routes import health
 from contextlib import asynccontextmanager
+
+from fastapi import FastAPI
+
+from app.api.v0.routes import auth, health
+from app.core.config import get_settings
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """
+    Lifespan function to manage application startup and shutdown events.
+    """
     print("Starting application...")
 
     try:
@@ -17,17 +24,21 @@ async def lifespan(app: FastAPI):
     yield 
     print("Closing application resources...")
 
-app = FastAPI(lifespan=lifespan)
-
 def validate_settings(settings):
     """
     Validates the application settings. Raises a RuntimeError if any required settings are missing or invalid.
     Args: settings (Settings): The application settings to validate.
     """
-    if not settings.DATABASE_URL:
-        raise RuntimeError("DATABASE_URL missing")
-
+    if not settings.SECRET_KEY:
+        raise RuntimeError("SECRET KEY IS NULL")
+    if not os.getenv("DATABASE_URL_READER"):
+        raise RuntimeError("DATABASE_URL_READER missing")
+    if not os.getenv("DATABASE_URL_WRITER"):
+        raise RuntimeError("DATABASE_URL_WRITER missing")
+    
+app = FastAPI(lifespan=lifespan)
 app.include_router(health.router, prefix="/v0")
+app.include_router(auth.router, prefix="/v0")
 
 @app.get("/")
 def root():
