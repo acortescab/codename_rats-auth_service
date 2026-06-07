@@ -1,4 +1,5 @@
-from app.schemas.auth import AuthResponse
+from app.core.exceptions.auth import InvalidToken
+from app.schemas.auth import GuestLoginResponse, MeResponse
 from app.services.player_service import PlayerService
 from app.services.token_service import TokenService
 
@@ -27,9 +28,25 @@ class AuthService:
         access_token = self.token_service.create_access_token(player.id)
         refresh_token = self.token_service.create_refresh_token(player.id)
 
-        return AuthResponse(
+        return GuestLoginResponse(
             id=player.id, 
             name=player.name,
             access_token=access_token, 
             refresh_token=refresh_token
+        )
+    
+    def get_player_from_token(self, token: str) -> str:
+        """
+        Returns player from token
+        """
+        payload = self.token_service.decode_token(token)
+
+        if not payload:
+            raise InvalidToken("Invalid token")
+
+        player = self.player_service.get_player_by_id(payload["sub"])
+
+        return MeResponse(
+            id=player.id,
+            name=player.name
         )

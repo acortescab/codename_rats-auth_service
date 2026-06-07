@@ -16,7 +16,7 @@ class RefreshTokenRepository:
         self.write_db = write_db
         self.read_db = read_db
 
-    def create(self, player_id, token, expires_at):
+    def create(self, player_id, jti, token, expires_at):
         """
         Creates a new refresh token
         """
@@ -24,13 +24,21 @@ class RefreshTokenRepository:
 
         db_token = RefreshToken(
             player_id=player_id,
+            jti=jti,
             token_hash=token_hash,
-            expires_at=expires_at
+            expires_at=expires_at,
+            revoked=False
         )
 
         self.write_db.add(db_token)
         self.write_db.commit()
         return db_token
+    
+    def update(self):
+        """
+        Update registries
+        """
+        self.write_db.commit()
     
     def get_by_player_id(self, player_id):
         """
@@ -39,3 +47,13 @@ class RefreshTokenRepository:
         return self.read_db.query(RefreshToken).filter(
             player_id == player_id
         ).first()
+    
+    def get_by_jti(self, jti):
+        """
+        Gets a token by jti
+        """
+        return self.read_db.query(RefreshToken).filter(
+            RefreshToken.jti == jti,
+            not RefreshToken.revoked
+        ).first()
+

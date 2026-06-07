@@ -9,11 +9,31 @@ class GuestLoginRequest(BaseModel):
     """
     device_id: str
 
-class AuthResponse(BaseModel):
+class RefreshTokenRequest(BaseModel):
     """
-    Response model for authentication endpoints, including guest login.
+    Request model for refresh token endpoint
+    """
+    refresh_token: str
+
+class GuestLoginResponse(BaseModel):
+    """
+    Response model for guest login.
     """
     id: UUID = Field(default_factory=uuid4)
     name: str
     access_token: str
     refresh_token: str
+
+class RefreshTokenResponse(BaseModel):
+    """
+    Response model for refresh token
+    """
+    access_token: str
+    refresh_token: str
+
+class MeResponse(BaseModel):
+    """
+    Response for player validation
+    """
+    id: UUID = Field(default_factory=uuid4)
+    name: str
