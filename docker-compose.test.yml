@@ -1,5 +1,5 @@
 services:
-  db:
+  db_test:
     image: postgres:15
     ports:
       - "5432:5432"
@@ -13,16 +13,13 @@ services:
       timeout: 5s
       retries: 10
 
-  api:
+  test:
     build: .
-    ports:
-      - "8000:8000"
-    volumes:
-      - .:/app 
     environment:
-      ENV: test
-      DATABASE_URL_READER: postgresql://user:pass@db:5432/test_db
-      DATABASE_URL_WRITER: postgresql://user:pass@db:5432/test_db
+      ENV: test 
+      DATABASE_URL_READER: postgresql://user:pass@db_test:5432/test_db
+      DATABASE_URL_WRITER: postgresql://user:pass@db_test:5432/test_db
+      SECRET_KEY: DeyLu5K0xn_MX-9HSCxHrn0lZ9ZDjk4b_Kw9U6cAUWJeaStr8NaJQnyB2JI-Yi-0oFd9ujlTgt0D35tTuCfPIw
     depends_on:
-      - db
+      - db_test
     command: pytest -q

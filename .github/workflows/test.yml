@@ -14,9 +14,4 @@ jobs:
 
       - name: Run tests with Docker Compose
         run: |
-          make test-rebuild
-
-      - name: Shutdown containers
-        if: always()
-        run: |
-          make test-down
+          make test
