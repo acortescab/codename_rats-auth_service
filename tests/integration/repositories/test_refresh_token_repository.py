@@ -1,22 +1,6 @@
-import pytest
-
-from app.db.session import SessionLocalWriter
 
 
-@pytest.fixture
-def db_session():
-    """
-    Creates a real database session for integration tests.
-    """
-    session = SessionLocalWriter()
-
-    try:
-        yield session
-    finally:
-        session.rollback()
-        session.close()
-
-def test_refresh_token_persistence(db_session):
+def test_refresh_token_persistence(db_session_writer, db_session_reader):
     """
     Integration test for RefreshTokenRepository.
 
@@ -26,17 +10,28 @@ def test_refresh_token_persistence(db_session):
     """
 
     from app.repositories.refresh_token_repository import RefreshTokenRepository
+    from app.repositories.player_repository import PlayerRepository
+    from datetime import datetime, timedelta, timezone
+    import hashlib
 
-    repo = RefreshTokenRepository(db_session)
+    repo_player = PlayerRepository(db_session_writer, db_session_reader)
+    repo_token = RefreshTokenRepository(db_session_writer, db_session_reader)
 
-    token = "hashed_token_123"
+    token = "token_123"
+    token_hashed = hashlib.sha256(token.encode()).hexdigest()
 
-    repo.create(
-        player_id=1,
-        token=token
+    player = repo_player.create(
+        device_id="device_123", 
+        name = "name_123"
     )
 
-    stored = repo.get_by_player_id(1)
+    repo_token.create(
+        player_id=player.id,
+        token=token,
+        expires_at=datetime.now(timezone.utc) + timedelta(days=7)
+    )
+
+    stored = repo_token.get_by_player_id(player.id)
 
     assert stored is not None
-    assert stored.token == token
+    assert stored.token_hash == token_hashed

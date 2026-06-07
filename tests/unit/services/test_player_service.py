@@ -1,6 +1,7 @@
 from unittest.mock import Mock
 
 from app.services.player_service import PlayerService
+import uuid
 
 def test_get_or_create_guest_existing_player():
     """
@@ -16,19 +17,19 @@ def test_get_or_create_guest_existing_player():
     repo = Mock()
 
     existing_player = Mock()
-    existing_player.id = 1
+    existing_player.id = uuid.uuid4()
     existing_player.name = "guest-123"
 
-    repo.get_by_device.return_value = existing_player
+    repo.get_by_device_id.return_value = existing_player
 
     service = PlayerService(repo)
 
     # Act
     result = service.get_or_create_guest("device_123")
-
+    
     # Assert
-    repo.get_by_device.assert_called_once_with("device_123")
-    repo.update_last_login.assert_called_once_with(1)
+    repo.get_by_device_id.assert_called_once_with("device_123")
+    repo.update_last_login.assert_called_once_with(existing_player)
     repo.create.assert_not_called()
 
     assert result == existing_player
@@ -44,10 +45,10 @@ def test_get_or_create_guest_creates_new_player():
     """
 
     repo = Mock()
-    repo.get_by_device.return_value = None
+    repo.get_by_device_id.return_value = None
 
     created_player = Mock()
-    created_player.id = 99
+    created_player.id = uuid.uuid4()
     created_player.name = "guest-abc123"
 
     repo.create.return_value = created_player
@@ -58,7 +59,7 @@ def test_get_or_create_guest_creates_new_player():
     result = service.get_or_create_guest("device_999")
 
     # Assert
-    repo.get_by_device.assert_called_once_with("device_999")
+    repo.get_by_device_id.assert_called_once_with("device_999")
     repo.update_last_login.assert_not_called()
     repo.create.assert_called_once()
 

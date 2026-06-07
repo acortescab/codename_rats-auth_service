@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import Mock
 from app.services.auth_service import AuthService
 from app.schemas.auth import AuthResponse
+import uuid
 
 def test_guest_login_success():
     """
@@ -19,7 +20,7 @@ def test_guest_login_success():
     mock_player = Mock()
 
     # Fill mock player data
-    mock_player.id = 1
+    mock_player.id = uuid.uuid4()
     mock_player.name = "guest_123"
 
     # Fill mock player service data
@@ -36,12 +37,12 @@ def test_guest_login_success():
 
     # Assert
     player_service.get_or_create_guest.assert_called_once_with("device_123")
-    token_service.create_access_token.assert_called_once_with(1)
-    token_service.create_refresh_token.assert_called_once_with(1)
+    token_service.create_access_token.assert_called_once_with(mock_player.id)
+    token_service.create_refresh_token.assert_called_once_with(mock_player.id)
 
     assert isinstance(result, AuthResponse)
-    assert result.id == 1
-    assert result.name == "guest_123"
+    assert result.id == mock_player.id
+    assert result.name == mock_player.name
     assert result.access_token == "access_token_mock"
     assert result.refresh_token == "refresh_token_mock"
 
@@ -61,7 +62,7 @@ def test_guest_login_calls_services_once():
     mock_player = Mock()
 
     # Fill mock player data
-    mock_player.id = 99
+    mock_player.id = uuid.uuid4()
     mock_player.name = "guest_test"
 
     # Fill mock player service data
