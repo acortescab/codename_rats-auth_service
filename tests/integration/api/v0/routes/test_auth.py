@@ -24,7 +24,7 @@ async def test_guest_login_integration():
         }
 
         response = await client.post(
-            "/auth/guest-login",
+            "/v0/auth/guest-login",
             json=payload
         )
 
