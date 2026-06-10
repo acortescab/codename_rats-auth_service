@@ -1,6 +1,9 @@
 import uuid
-from unittest.mock import Mock
+from typing import cast
+from unittest.mock import create_autospec
 
+from app.db.models.player import Player
+from app.repositories.player_repository import PlayerRepository
 from app.services.player_service import PlayerService
 
 
@@ -15,9 +18,9 @@ def test_get_or_create_guest_existing_player():
     """
 
     # Arrange
-    repo = Mock()
-
-    existing_player = Mock()
+    repo = cast(PlayerRepository, create_autospec(PlayerRepository))
+    
+    existing_player = cast(Player, create_autospec(Player))
     existing_player.id = uuid.uuid4()
     existing_player.name = "guest-123"
 
@@ -45,10 +48,10 @@ def test_get_or_create_guest_creates_new_player():
     - generate_guest_name is used
     """
 
-    repo = Mock()
+    repo = cast(PlayerRepository, create_autospec(PlayerRepository))
     repo.get_by_device_id.return_value = None
 
-    created_player = Mock()
+    created_player = cast(Player, create_autospec(Player))
     created_player.id = uuid.uuid4()
     created_player.name = "guest-abc123"
 
@@ -77,7 +80,7 @@ def test_generate_guest_name_format():
     with correct format: guest-xxxxxx
     """
 
-    repo = Mock()
+    repo = cast(PlayerRepository, create_autospec(PlayerRepository))
     service = PlayerService(repo)
 
     name = service.generate_guest_name()
