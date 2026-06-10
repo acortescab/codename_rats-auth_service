@@ -63,11 +63,15 @@ class AuthService:
         payload = self.token_service.decode_token(token)
 
         if not payload:
-            return
+            logger.info(f"payload decoding error for token: {token}")
+            raise InvalidToken("Invalid token")
+        
+        logger.info(f"token valid: {payload}")
         
         jti = payload.get("jti")
         if not jti:
-            return
+            logger.info(f"payload jti error: {payload}")
+            raise InvalidToken("Invalid token")
         
-        self.token_service.get_and_revoke_token(payload["jti"])
+        self.token_service.get_and_revoke_token(jti)
         
