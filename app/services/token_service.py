@@ -49,10 +49,9 @@ class TokenService:
             raise InvalidRefreshTokenError("Not found or invalid token")
 
         access_token = self.create_access_token(player_id)
-        refresh_token = self.create_refresh_token(player_id)
+        refresh_token = self.create_refresh_token(player_id) 
 
-        stored.revoked = True
-        self.repo.update(stored)
+        self.repo.revoke_by_id(stored.id)
 
         return {
             "access_token" : access_token,
@@ -97,14 +96,11 @@ class TokenService:
     
     def get_and_revoke_token(self, jti: str):
         """
-        Get refresh token by jti and revoked if valid
+        Revokes token by jti
         """
-        refresh_token = self.get_token_by_jti(jti)
+        revoked = self.repo.revoke_by_jti(jti)
 
-        if not refresh_token or refresh_token.revoked:
+        if not revoked:
             raise InvalidToken("Invalid or revoked token")
-        
-        refresh_token.revoked = True
-        self.repo.update(refresh_token)
     
 

@@ -1,10 +1,12 @@
 import hashlib
+import logging
 from datetime import datetime
 
 from sqlalchemy.orm import Session
 
 from app.db.models.refresh_token import RefreshToken
 
+logger = logging.getLogger("__name__")
 
 class RefreshTokenRepository:
     """
@@ -35,13 +37,6 @@ class RefreshTokenRepository:
         self.write_db.commit()
         return db_token
     
-    def update(self, obj):
-        """
-        Update registries
-        """
-        self.write_db.add(obj)
-        self.write_db.commit()
-    
     def get_by_player_id(self, player_id):
         """
         Gets a token by player id
@@ -54,8 +49,25 @@ class RefreshTokenRepository:
         """
         Gets a token by jti
         """
+        logger.info(f"revoke token request with jti: {jti}")
+        
         return self.read_db.query(RefreshToken).filter(
             RefreshToken.jti == jti,
-            not RefreshToken.revoked
+            ~RefreshToken.revoked
         ).first()
 
+    def revoke_by_jti(self, jti):
+        """
+        Revokes a token by jti
+        """
+        logger.info(f"revoke token request with jti: {jti}")
+
+        rows = self.write_db.query(RefreshToken).filter(
+            RefreshToken.jti == jti,
+            ~RefreshToken.revoked
+        ).update(
+            {"revoked": True}
+        )
+
+        self.write_db.commit()
+        return rows > 0
