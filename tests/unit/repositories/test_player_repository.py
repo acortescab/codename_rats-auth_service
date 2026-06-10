@@ -2,7 +2,7 @@
 
 def test_player_repository_create_and_get(db_session_writer, db_session_reader):
     """
-    Integration test for PlayerRepository.
+    Unit test for PlayerRepository.
 
     Verifies:
     - player is persisted in DB
@@ -28,7 +28,7 @@ def test_player_repository_create_and_get(db_session_writer, db_session_reader):
 
 def test_update_last_login(db_session_writer, db_session_reader):
     """
-    Integration test for updating last login timestamp.
+    Unit test for updating last login timestamp.
     """
 
     from app.repositories.player_repository import PlayerRepository
