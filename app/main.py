@@ -1,3 +1,4 @@
+import logging
 import os
 import sys
 from contextlib import asynccontextmanager
@@ -7,6 +8,18 @@ from fastapi import FastAPI
 from app.api.v0.routes import auth, health
 from app.core.config import get_settings
 
+# Loggins configuration
+logging.root.handlers = []
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
+    handlers=[logging.StreamHandler(sys.stdout)],
+)
+
+logging.getLogger("uvicorn").setLevel(logging.INFO)
+logging.getLogger("uvicorn.access").setLevel(logging.INFO)
+logging.getLogger("uvicorn.error").setLevel(logging.INFO)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

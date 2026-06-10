@@ -34,4 +34,10 @@ shell:
 	docker compose -f $(COMPOSE_FILE_DEV) exec api /bin/sh
 
 shell-db:
-	docker compose -f $(COMPOSE_FILE_DEV) exec db /bin/sh
+	docker compose -f $(COMPOSE_FILE_DEV) exec db psql -U user -d db
+
+migrate:
+	docker compose -f $(COMPOSE_FILE_DEV) exec api alembic revision --autogenerate -m "$(msg)"
+
+update-db:
+	docker compose -f $(COMPOSE_FILE_DEV) exec api alembic upgrade head
