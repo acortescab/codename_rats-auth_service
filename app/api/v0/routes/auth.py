@@ -35,6 +35,7 @@ def refresh_token(payload: RefreshTokenRequest, service: TokenServiceDep):
         raise HTTPException(status_code=401, detail=str(e))
     
 @router.get("/me", response_model=MeResponse)
+# Requires access token as a header
 def me(token: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)], service: AuthServiceDep):
     """
     Endpoint for player recognition
@@ -45,6 +46,7 @@ def me(token: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)], s
         raise HTTPException(status_code=401, detail=str(e))
     
 @router.post("/logout")
+# Requires refresh token as a header
 def logout(token: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)], service: AuthServiceDep):
     """
     Endpoint for player logout
