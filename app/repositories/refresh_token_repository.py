@@ -1,4 +1,5 @@
 import hashlib
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 
@@ -16,7 +17,7 @@ class RefreshTokenRepository:
         self.write_db = write_db
         self.read_db = read_db
 
-    def create(self, player_id, jti, token, expires_at):
+    def create(self, player_id, jti, token, expires_at: datetime):
         """
         Creates a new refresh token
         """
@@ -26,18 +27,19 @@ class RefreshTokenRepository:
             player_id=player_id,
             jti=jti,
             token_hash=token_hash,
+            revoked=False,
             expires_at=expires_at,
-            revoked=False
         )
 
         self.write_db.add(db_token)
         self.write_db.commit()
         return db_token
     
-    def update(self):
+    def update(self, obj):
         """
         Update registries
         """
+        self.write_db.add(obj)
         self.write_db.commit()
     
     def get_by_player_id(self, player_id):

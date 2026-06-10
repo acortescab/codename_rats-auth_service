@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from jose import jwt
 
 from app.core.config import get_settings
-from app.core.exceptions.auth import InvalidRefreshTokenError
+from app.core.exceptions.auth import InvalidRefreshTokenError, InvalidToken
 from app.repositories.refresh_token_repository import RefreshTokenRepository
 
 
@@ -43,9 +43,7 @@ class TokenService:
             raise InvalidRefreshTokenError("Invalid token")
         
         player_id = token["sub"]
-        jti = token["jti"]
-        
-        stored = self.repo.get_by_jti(jti)
+        stored = self.get_token_by_jti(token["jti"])
 
         if not stored or stored.revoked:
             raise InvalidRefreshTokenError("Not found or invalid token")
@@ -54,7 +52,7 @@ class TokenService:
         refresh_token = self.create_refresh_token(player_id)
 
         stored.revoked = True
-        self.repo.update()
+        self.repo.update(stored)
 
         return {
             "access_token" : access_token,
@@ -65,19 +63,23 @@ class TokenService:
         """
         Creates a refresh token for the given player ID. 
         """
+
+        expires_at = datetime.now(timezone.utc) + timedelta(days=7)
+        jti = str(uuid.uuid4())
+
         payload = {
             "sub": str(player_id),
-            "jti": str(uuid.uuid4()),
-            "exp": datetime.now(timezone.utc) + timedelta(days=7),
+            "jti": jti,
+            "exp": expires_at,
             "iat": datetime.now(timezone.utc)
         }
 
         token = jwt.encode(payload, self.settings.SECRET_KEY, algorithm=self.settings.ALGORITHM)
-        self.repo.create(player_id, payload["jti"], token, payload["exp"])
+        self.repo.create(player_id, jti, token, expires_at)
 
         return token
 
-    def decode_token(self, token: str):
+    def decode_token(self, token):
         """
         Decodes a token and returns the payload. 
         """
@@ -86,3 +88,23 @@ class TokenService:
             self.settings.SECRET_KEY,
             algorithms=[self.settings.ALGORITHM]
         )
+    
+    def get_token_by_jti(self, jti: str):
+        """
+        Get refresh token by jti
+        """
+        return self.repo.get_by_jti(jti)
+    
+    def get_and_revoke_token(self, jti: str):
+        """
+        Get refresh token by jti and revoked if valid
+        """
+        refresh_token = self.get_token_by_jti(jti)
+
+        if not refresh_token or refresh_token.revoked:
+            raise InvalidToken("Invalid or revoked token")
+        
+        refresh_token.revoked = True
+        self.repo.update(refresh_token)
+    
+

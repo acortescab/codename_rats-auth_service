@@ -1,15 +1,15 @@
-"""init tables
+"""Fix timezone
 
-Revision ID: c7e520b362bd
-Revises: 
-Create Date: 2026-06-07 09:36:31.452897
+Revision ID: c50d2f838e71
+Revises: f2ddcc3b83e0
+Create Date: 2026-06-09 14:21:23.821180
 
 """
 from typing import Sequence, Union
 
 # revision identifiers, used by Alembic.
-revision: str = 'c7e520b362bd'
-down_revision: Union[str, Sequence[str], None] = None
+revision: str = 'c50d2f838e71'
+down_revision: Union[str, Sequence[str], None] = 'f2ddcc3b83e0'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

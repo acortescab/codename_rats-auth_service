@@ -1,8 +1,11 @@
+import logging
+
 from app.core.exceptions.auth import InvalidToken
 from app.schemas.auth import GuestLoginResponse, MeResponse
 from app.services.player_service import PlayerService
 from app.services.token_service import TokenService
 
+logger = logging.getLogger("__name__")
 
 class AuthService:
     """
@@ -35,18 +38,36 @@ class AuthService:
             refresh_token=refresh_token
         )
     
-    def get_player_from_token(self, token: str) -> str:
+    def get_player_from_token(self, token: str):
         """
         Returns player from token
         """
         payload = self.token_service.decode_token(token)
 
         if not payload:
+            logger.info(f"payload decoding error for token: {token}")
             raise InvalidToken("Invalid token")
 
         player = self.player_service.get_player_by_id(payload["sub"])
+        logger.info(f"user valid for token: {token}")
 
         return MeResponse(
             id=player.id,
             name=player.name
         )
+    
+    def logout_player(self, token: str):
+        """
+        Logouts a player with valid token revoking it
+        """
+        payload = self.token_service.decode_token(token)
+
+        if not payload:
+            return
+        
+        jti = payload.get("jti")
+        if not jti:
+            return
+        
+        self.token_service.get_and_revoke_token(payload["jti"])
+        

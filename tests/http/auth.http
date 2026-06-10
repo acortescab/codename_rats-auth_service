@@ -1,0 +1,18 @@
+POST http://localhost:8000/v0/auth/guest-login HTTP/1.1
+content-Type: application/json
+
+{
+  "device_id": "device_123"
+}
+
+###
+
+GET http://localhost:8000/v0/auth/me HTTP/1.1
+content-type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5Y2ZkMmVlNC01Yjg4LTRmNjQtOWJkYS0zNTJhOTU4ZGVlYzkiLCJleHAiOjE3ODEwMjE0NTIsImlhdCI6MTc4MTAxOTY1Mn0.KNlkEOiwVU-s_-kZTBORDsEUq4TflSeHA5Uu9KQNYHs
+
+###
+
+POST http://localhost:8000/v0/auth/logout HTTP/1.1
+content-type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI5Y2ZkMmVlNC01Yjg4LTRmNjQtOWJkYS0zNTJhOTU4ZGVlYzkiLCJleHAiOjE3ODEwMjE0NTIsImlhdCI6MTc4MTAxOTY1Mn0.KNlkEOiwVU-s_-kZTBORDsEUq4TflSeHA5Uu9KQNYHs

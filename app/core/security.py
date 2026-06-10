@@ -1,8 +1,5 @@
 from enum import Enum
-from typing import Annotated
-
-from fastapi import Depends
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer
 
 
 class JWTAlgorithm(str, Enum):
@@ -13,5 +10,4 @@ class JWTAlgorithm(str, Enum):
     HS384 = "HS384"
     HS512 = "HS512"
     
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
-OAuthDep = Annotated[str, Depends(oauth2_scheme)]
+oauth2_scheme = HTTPBearer()
