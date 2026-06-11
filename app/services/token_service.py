@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 from jose import jwt
 
 from app.core.config import get_settings
-from app.core.exceptions.auth import InvalidRefreshTokenError, InvalidToken
+from app.core.exceptions.auth import InvalidToken
 from app.repositories.refresh_token_repository import RefreshTokenRepository
 
 
@@ -40,18 +40,20 @@ class TokenService:
         token = self.decode_token(refresh_token)
 
         if not token:
-            raise InvalidRefreshTokenError("Invalid token")
+            raise InvalidToken("Invalid token")
         
-        player_id = token["sub"]
-        stored = self.get_token_by_jti(token["jti"])
+        player_id = token.get("sub")
+        jti = token.get("jti")
+
+        stored = self.get_token_by_jti(jti)
 
         if not stored or stored.revoked:
-            raise InvalidRefreshTokenError("Not found or invalid token")
+            raise InvalidToken("Not found or invalid token")
 
         access_token = self.create_access_token(player_id)
         refresh_token = self.create_refresh_token(player_id) 
 
-        self.repo.revoke_by_id(stored.id)
+        self.repo.revoke_by_jti(jti)
 
         return {
             "access_token" : access_token,

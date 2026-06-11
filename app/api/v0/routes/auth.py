@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 
-from app.core.exceptions.auth import InvalidRefreshTokenError, InvalidToken
+from app.core.exceptions.auth import InvalidToken
 from app.core.security import oauth2_scheme
 from app.dependencies import get_auth_service, get_player_service, get_token_service
 from app.schemas.auth import GuestLoginRequest, GuestLoginResponse, MeResponse, RefreshTokenRequest, RefreshTokenResponse
@@ -31,7 +31,7 @@ def refresh_token(payload: RefreshTokenRequest, service: TokenServiceDep):
     """
     try:
         return service.refresh_token(payload.refresh_token)
-    except InvalidRefreshTokenError as e:
+    except InvalidToken as e:
         raise HTTPException(status_code=401, detail=str(e))
     
 @router.get("/me", response_model=MeResponse)

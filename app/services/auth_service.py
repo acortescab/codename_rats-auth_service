@@ -47,9 +47,20 @@ class AuthService:
         if not payload:
             logger.info(f"payload decoding error for token: {token}")
             raise InvalidToken("Invalid token")
+        
+        sub = payload.get("sub")
 
-        player = self.player_service.get_player_by_id(payload["sub"])
-        logger.info(f"user valid for token: {token}")
+        if not sub:
+            logger.info(f"payload decoding error for token: {token}")
+            raise InvalidToken("Invalid token")
+
+        player = self.player_service.get_player_by_id(sub)
+
+        logger.info(f"sub value is {sub}")
+
+        if not player:
+            logger.info(f"payload decoding error for token: {token} & {sub}")
+            raise InvalidToken("Invalid token")
 
         return MeResponse(
             id=player.id,
@@ -66,9 +77,8 @@ class AuthService:
             logger.info(f"payload decoding error for token: {token}")
             raise InvalidToken("Invalid token")
         
-        logger.info(f"token valid: {payload}")
-        
         jti = payload.get("jti")
+
         if not jti:
             logger.info(f"payload jti error: {payload}")
             raise InvalidToken("Invalid token")

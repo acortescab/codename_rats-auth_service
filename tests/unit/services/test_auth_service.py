@@ -3,6 +3,7 @@ from typing import cast
 from unittest.mock import create_autospec
 
 import pytest
+from fastapi.security import HTTPAuthorizationCredentials
 
 from app.core.exceptions.auth import InvalidToken
 from app.db.models.player import Player
@@ -117,13 +118,13 @@ def test_me_success():
     player_service = cast(PlayerService, create_autospec(PlayerService))
 
     payload = {
-        "sub": "player_123"
+        "sub": uuid.uuid4()
     }
 
     token_service.decode_token.return_value = payload
 
     mock_player = cast(Player, create_autospec(Player))
-    mock_player.id = "player_123"
+    mock_player.id = payload["sub"]
     mock_player.name = "test"
 
     player_service.get_player_by_id.return_value = mock_player
@@ -135,10 +136,10 @@ def test_me_success():
 
     # Assert
     token_service.decode_token.assert_called_once_with("valid_token")
-    player_service.get_player_by_id.assert_called_once_with("player_123")
+    player_service.get_player_by_id.assert_called_once_with(payload["sub"])
 
-    assert result.id == "player_123"
-    assert result.name == "test"
+    assert result.id == mock_player.id
+    assert result.name == mock_player.name
 
 def test_logout_refresh_token():
     """
@@ -149,20 +150,24 @@ def test_logout_refresh_token():
     token_service = cast(TokenService, create_autospec(TokenService))
     token_repo = cast(RefreshTokenRepository, create_autospec(RefreshTokenRepository))
 
+    credentials = HTTPAuthorizationCredentials(
+        scheme="Bearer",
+        credentials="refresh_token"
+    )
+
     payload = {"jti": "token_123"}
 
     token_service.decode_token.return_value = payload
-
     token_repo.revoke_by_jti.return_value = True
 
     auth_service = AuthService(None, token_service)
 
     # Act
-    auth_service.logout_player("refresh_token")
+    auth_service.logout_player(credentials)
 
     # Assert
-    token_service.decode_token.assert_called_once_with("refresh_token")
-    token_repo.revoke_by_jti.assert_called_once_with("token_123")
+    token_service.decode_token.assert_called_once_with(credentials)
+    token_service.get_and_revoke_token.assert_called_once_with("token_123")
 
 def test_me_invalid_token():
     """
