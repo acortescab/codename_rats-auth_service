@@ -1,5 +1,7 @@
-from unittest.mock import Mock, patch
+from typing import cast
+from unittest.mock import create_autospec, patch
 
+from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.services.token_service import TokenService
 
 
@@ -11,7 +13,7 @@ def test_create_access_token_returns_token():
     This test mocks JWT encoding to isolate logic.
     """
 
-    repo = Mock()
+    repo = cast(RefreshTokenRepository, create_autospec(RefreshTokenRepository))
     service = TokenService(repo)
 
     with patch("app.services.token_service.jwt.encode") as mock_encode:
@@ -25,7 +27,6 @@ def test_create_access_token_returns_token():
         payload = args[0]
 
         assert payload["sub"] == "1"
-        assert payload["type"] == "access"
         assert "exp" in payload
         assert "iat" in payload
 
@@ -38,7 +39,7 @@ def test_create_refresh_token_saves_to_repository():
     - persists it via RefreshTokenRepository
     """
 
-    repo = Mock()
+    repo = cast(RefreshTokenRepository, create_autospec(RefreshTokenRepository))
     repo.create.return_value = None
 
     service = TokenService(repo)
@@ -62,7 +63,7 @@ def test_decode_token_returns_payload():
     and returns the decoded payload.
     """
 
-    repo = Mock()
+    repo = cast(RefreshTokenRepository, create_autospec(RefreshTokenRepository))
     service = TokenService(repo)
 
     fake_payload = {

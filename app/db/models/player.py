@@ -18,5 +18,5 @@ class Player(Base):
 
     name = Column(String, nullable=False)
     
-    created_at = Column(DateTime, default=datetime.now(timezone.utc))
-    last_login = Column(DateTime, default=datetime.now(timezone.utc))
+    created_at = Column(DateTime, default=lambda:datetime.now(timezone.utc))
+    last_login = Column(DateTime, default=lambda:datetime.now(timezone.utc))

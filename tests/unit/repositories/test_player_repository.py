@@ -1,16 +1,14 @@
+from app.repositories.player_repository import PlayerRepository
 
 
 def test_player_repository_create_and_get(db_session_writer, db_session_reader):
     """
-    Integration test for PlayerRepository.
+    Unit test for PlayerRepository.
 
     Verifies:
     - player is persisted in DB
     - player can be retrieved by device_id
     """
-
-    from app.repositories.player_repository import PlayerRepository
-
     repo = PlayerRepository(db_session_writer, db_session_reader)
 
     created = repo.create(
@@ -20,19 +18,14 @@ def test_player_repository_create_and_get(db_session_writer, db_session_reader):
 
     player = repo.get_by_device_id("device_123")
 
-    print (f"Player created {player}")
-
     assert player is not None
     assert player.id == created.id
     assert player.device_id == "device_123"
 
 def test_update_last_login(db_session_writer, db_session_reader):
     """
-    Integration test for updating last login timestamp.
+    Unit test for updating last login timestamp.
     """
-
-    from app.repositories.player_repository import PlayerRepository
-
     repo = PlayerRepository(db_session_writer, db_session_reader)
 
     player = repo.create(
@@ -40,7 +33,7 @@ def test_update_last_login(db_session_writer, db_session_reader):
         name="guest-test"
     )
 
-    repo.update_last_login(player)
+    repo.update_last_login(player.id)
 
     updated = repo.get_by_device_id("device_999")
 

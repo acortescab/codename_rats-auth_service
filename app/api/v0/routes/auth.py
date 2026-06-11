@@ -1,20 +1,57 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
+from fastapi.security import HTTPAuthorizationCredentials
 
-from app.dependencies import get_auth_service
-from app.schemas.auth import GuestLoginRequest
-from app.services.auth_service import AuthResponse, AuthService
+from app.core.exceptions.auth import InvalidToken
+from app.core.security import oauth2_scheme
+from app.dependencies import get_auth_service, get_player_service, get_token_service
+from app.schemas.auth import GuestLoginRequest, GuestLoginResponse, MeResponse, RefreshTokenRequest, RefreshTokenResponse
+from app.services.auth_service import AuthService, PlayerService, TokenService
 
 # Authentication routes for the OAuth service
 router = APIRouter(prefix="/auth", tags=["auth"])
 
-# Resolve Dependency Injection to get auth service
+# Resolve Dependency Injection to get multiple services
 AuthServiceDep = Annotated[AuthService, Depends(get_auth_service)]
+TokenServiceDep = Annotated[TokenService, Depends(get_token_service)]
+PlayerServiceDep = Annotated[PlayerService, Depends(get_player_service)]
 
-@router.post("/guest-login", response_model=AuthResponse)
+@router.post("/guest-login", response_model=GuestLoginResponse)
 def guest_login(payload: GuestLoginRequest, service: AuthServiceDep):
     """
-    Endpoint for guest login. This is a placeholder implementation and should be replaced with actual authentication logic.
+    Endpoint for guest login.
     """
     return service.guest_login(payload.device_id)
+
+@router.post("/refresh-token", response_model=RefreshTokenResponse)
+def refresh_token(payload: RefreshTokenRequest, service: TokenServiceDep):
+    """
+    Endpoint for refresh token.
+    """
+    try:
+        return service.refresh_token(payload.refresh_token)
+    except InvalidToken as e:
+        raise HTTPException(status_code=401, detail=str(e))
+    
+@router.get("/me", response_model=MeResponse)
+# Requires access token as a header
+def me(token: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)], service: AuthServiceDep):
+    """
+    Endpoint for player recognition
+    """
+    try:
+        return service.get_player_from_token(token.credentials)
+    except InvalidToken as e:
+        raise HTTPException(status_code=401, detail=str(e))
+    
+@router.post("/logout")
+# Requires refresh token as a header
+def logout(token: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)], service: AuthServiceDep):
+    """
+    Endpoint for player logout
+    """
+    try:
+        return service.logout_player(token.credentials)
+    except InvalidToken as e:
+        raise HTTPException(status_code=401, detail=str(e))

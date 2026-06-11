@@ -48,9 +48,13 @@ class PlayerRepository:
         self.write_db.refresh(player)
         return player
 
-    def update_last_login(self, player):
+    def update_last_login(self, id):
         """
         Updates the last login timestamp for a player.
         """
+        player = self.write_db.query(Player).filter(
+            Player.id == id
+        ).first()
+
         player.last_login = datetime.now(timezone.utc)
         self.write_db.commit()

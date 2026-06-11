@@ -1,9 +1,12 @@
 import hashlib
+import logging
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 
 from app.db.models.refresh_token import RefreshToken
 
+logger = logging.getLogger("__name__")
 
 class RefreshTokenRepository:
     """
@@ -16,7 +19,7 @@ class RefreshTokenRepository:
         self.write_db = write_db
         self.read_db = read_db
 
-    def create(self, player_id, token, expires_at):
+    def create(self, player_id, jti, token, expires_at: datetime):
         """
         Creates a new refresh token
         """
@@ -24,8 +27,10 @@ class RefreshTokenRepository:
 
         db_token = RefreshToken(
             player_id=player_id,
+            jti=jti,
             token_hash=token_hash,
-            expires_at=expires_at
+            revoked=False,
+            expires_at=expires_at,
         )
 
         self.write_db.add(db_token)
@@ -39,3 +44,30 @@ class RefreshTokenRepository:
         return self.read_db.query(RefreshToken).filter(
             player_id == player_id
         ).first()
+    
+    def get_by_jti(self, jti):
+        """
+        Gets a token by jti
+        """
+        logger.info(f"revoke token request with jti: {jti}")
+        
+        return self.read_db.query(RefreshToken).filter(
+            RefreshToken.jti == jti,
+            ~RefreshToken.revoked
+        ).first()
+
+    def revoke_by_jti(self, jti):
+        """
+        Revokes a token by jti
+        """
+        logger.info(f"revoke token request with jti: {jti}")
+
+        rows = self.write_db.query(RefreshToken).filter(
+            RefreshToken.jti == jti,
+            ~RefreshToken.revoked
+        ).update(
+            {"revoked": True}
+        )
+
+        self.write_db.commit()
+        return rows > 0
