@@ -33,7 +33,7 @@ def test_get_or_create_guest_existing_player():
     
     # Assert
     repo.get_by_device_id.assert_called_once_with("device_123")
-    repo.update_last_login.assert_called_once_with(existing_player)
+    repo.update_last_login.assert_called_once_with(existing_player.id)
     repo.create.assert_not_called()
 
     assert result == existing_player

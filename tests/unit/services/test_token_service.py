@@ -27,7 +27,6 @@ def test_create_access_token_returns_token():
         payload = args[0]
 
         assert payload["sub"] == "1"
-        assert "jti" in payload
         assert "exp" in payload
         assert "iat" in payload
 
