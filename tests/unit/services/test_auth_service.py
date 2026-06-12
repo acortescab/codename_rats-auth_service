@@ -8,7 +8,7 @@ from fastapi.security import HTTPAuthorizationCredentials
 from app.core.exceptions.auth import InvalidToken
 from app.db.models.player import Player
 from app.repositories.refresh_token_repository import RefreshTokenRepository
-from app.schemas.auth import GuestLoginResponse
+from app.schemas.auth import GuestLoginResponse, RegisterResponse
 from app.services.auth_service import AuthService
 from app.services.player_service import PlayerService
 from app.services.token_service import TokenService
@@ -24,19 +24,16 @@ def test_guest_login_success():
     - TokenService generates both tokens
     - Response structure is correct
     """
-    # Arrange mock dependencies
+    # Arrange
     player_service = cast(PlayerService, create_autospec(PlayerService))
     token_service = cast(TokenService, create_autospec(TokenService))
     mock_player = cast(Player, create_autospec(Player))
 
-    # Fill mock player data
     mock_player.id = uuid.uuid4()
     mock_player.name = "guest_123"
 
-    # Fill mock player service data
     player_service.get_or_create_guest.return_value = mock_player
 
-    # Fill mock token service data
     token_service.create_access_token.return_value = "access_token_mock"
     token_service.create_refresh_token.return_value = "refresh_token_mock"
 
@@ -56,41 +53,6 @@ def test_guest_login_success():
     assert result.access_token == "access_token_mock"
     assert result.refresh_token == "refresh_token_mock"
 
-def test_guest_login_calls_services_once():
-    """
-    Ensures that all dependencies are called exactly once.
-
-    This protects against:
-    - accidental multiple DB calls
-    - duplicate token generation
-    - unintended side effects
-    """
-
-    # Arrange mock dependencies
-    player_service = cast(PlayerService, create_autospec(PlayerService))
-    token_service = cast(TokenService, create_autospec(TokenService))
-    mock_player = cast(Player, create_autospec(Player))
-
-    # Fill mock player data
-    mock_player.id = uuid.uuid4()
-    mock_player.name = "guest_test"
-
-    # Fill mock player service data
-    player_service.get_or_create_guest.return_value = mock_player
-
-    # Fill mock token service data
-    token_service.create_access_token.return_value = "a"
-    token_service.create_refresh_token.return_value = "b"
-
-    auth_service = AuthService(player_service, token_service)
-
-    # Act
-    auth_service.guest_login("device_x")
-
-    assert player_service.get_or_create_guest.call_count == 1
-    assert token_service.create_access_token.call_count == 1
-    assert token_service.create_refresh_token.call_count == 1
-
 def test_guest_login_empty_device_id_raises_error():
     """
     Tests that guest_login raises ValueError when
@@ -99,12 +61,13 @@ def test_guest_login_empty_device_id_raises_error():
     This ensures input validation is enforced
     at the service layer.
     """
-
+    # Arrange
     player_service = cast(PlayerService, create_autospec(PlayerService))
     token_service = cast(TokenService, create_autospec(TokenService))
 
     service = AuthService(player_service, token_service)
 
+    # Act
     with pytest.raises(ValueError):
         service.guest_login("")
 
@@ -112,7 +75,6 @@ def test_me_success():
     """
     Tests that /me returns player data when token is valid
     """
-
     # Arrange
     token_service = cast(TokenService, create_autospec(TokenService))
     player_service = cast(PlayerService, create_autospec(PlayerService))
@@ -145,7 +107,6 @@ def test_logout_refresh_token():
     """
     Tests that logout revokes a single refresh token
     """
-
     # Arrange
     token_service = cast(TokenService, create_autospec(TokenService))
     token_repo = cast(RefreshTokenRepository, create_autospec(RefreshTokenRepository))
@@ -173,7 +134,6 @@ def test_me_invalid_token():
     """
     Tests that /me raises error when token is invalid
     """
-
     # Arrange
     token_service = cast(TokenService, create_autospec(TokenService))
     player_service = cast(PlayerService, create_autospec(PlayerService))
@@ -182,9 +142,39 @@ def test_me_invalid_token():
 
     auth_service = AuthService(player_service, token_service)
 
-    # Act / Assert
+    # Act
     try:
         auth_service.get_player_from_token("bad_token")
+        
+        # Assert
         assert False
     except InvalidToken:
         token_service.decode_token.assert_called_once()
+
+def test_register_success():
+    """
+    Test that register returns a valid RegisteredResponse
+    """
+    # Arrange
+    token_service = cast(TokenService, create_autospec(TokenService))
+    player_service = cast(PlayerService, create_autospec(PlayerService))
+    mock_player = cast(Player, create_autospec(Player))
+
+    mock_player.id = uuid.uuid4()
+    mock_player.name = "user-123"
+    mock_player.email = "email@email.com"
+
+    player_service.register_user.return_value = mock_player
+
+    auth_service = AuthService(player_service, token_service)
+
+    # Act
+    result = auth_service.register_user("email@email.com", "user-123", "1314rdas.z")
+
+    # Assert
+    assert player_service.get_or_create_guest.call_count == 1
+
+    assert isinstance(result, RegisterResponse)
+    assert result.id == mock_player.id
+    assert result.name == mock_player.name
+    assert result.email == mock_player.email

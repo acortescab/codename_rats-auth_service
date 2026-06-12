@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 from app.repositories.player_repository import PlayerRepository
-
+from app.core.exceptions.auth import  InvalidRegistration
 
 class PlayerService:
     """
@@ -25,7 +25,18 @@ class PlayerService:
 
         name = self.generate_guest_name()
 
-        return self.repo.create(device_id=device_id, name=name)
+        return self.repo.create_guest(device_id=device_id, name=name)
+    
+    def register_user(self, email:str, password:str, name: str):
+        """
+        Register a new player
+        """
+        player = self.repo.get_by_email(email)
+
+        if player:
+            raise InvalidRegistration("Email is already in use")
+        
+        return self.repo.create_user(email, name, password)
     
     def get_player_by_id(self, player_id: str):
         """

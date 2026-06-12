@@ -4,7 +4,8 @@ COMPOSE_FILE_TEST=docker-compose.test.yml
 
 # Raise containers
 test:
-	docker compose -f $(COMPOSE_FILE_TEST) run --rm test
+	docker compose -f $(COMPOSE_FILE_TEST) down -v
+	docker compose -f $(COMPOSE_FILE_TEST) up --abort-on-container-exit test
 	docker compose -f $(COMPOSE_FILE_TEST) down -v
 
 dev-up:

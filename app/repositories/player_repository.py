@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.db.models.player import Player
+from app.core.security import hash_password
 
 
 class PlayerRepository:
@@ -35,14 +36,32 @@ class PlayerRepository:
             Player.id == player_id
         ).first()
 
-    def create(self, device_id: str, name: str):
+    def create_guest(self, device_id: str, name: str):
         """
-        Creates a new player.
+        Creates a new player guest.
         """
         player = Player(
             device_id=device_id,
-            name=name
+            name=name,
+            account_type="guest"
         )
+
+        self.write_db.add(player)
+        self.write_db.commit()
+        self.write_db.refresh(player)
+        return player
+    
+    def create_user(self, email:str, name:str, password:str):
+        """
+        Creates a new user
+        """
+        player = Player(
+            email=email,
+            name=name,
+            password=hash_password(password),
+            account_type="registered"
+        )
+
         self.write_db.add(player)
         self.write_db.commit()
         self.write_db.refresh(player)
@@ -58,3 +77,11 @@ class PlayerRepository:
 
         player.last_login = datetime.now(timezone.utc)
         self.write_db.commit()
+
+    def get_by_email(self, email:str):
+        """
+        Retrieves a player by their email
+        """
+        return self.read_db.query(Player).filter(
+            Player.email == email
+        ).first()
