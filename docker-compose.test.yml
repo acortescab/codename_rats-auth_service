@@ -21,5 +21,6 @@ services:
       DATABASE_URL_WRITER: postgresql://user:pass@db_test:5432/test_db
       SECRET_KEY: DeyLu5K0xn_MX-9HSCxHrn0lZ9ZDjk4b_Kw9U6cAUWJeaStr8NaJQnyB2JI-Yi-0oFd9ujlTgt0D35tTuCfPIw
     depends_on:
-      - db_test
+      db_test:
+        condition: service_healthy
     command: pytest -q

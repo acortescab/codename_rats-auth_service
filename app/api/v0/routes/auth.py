@@ -3,10 +3,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 
-from app.core.exceptions.auth import InvalidToken
+from app.core.exceptions.auth import InvalidToken, InvalidRegistration
 from app.core.security import oauth2_scheme
 from app.dependencies import get_auth_service, get_player_service, get_token_service
-from app.schemas.auth import GuestLoginRequest, GuestLoginResponse, MeResponse, RefreshTokenRequest, RefreshTokenResponse
+from app.schemas.auth import GuestLoginRequest, GuestLoginResponse, MeResponse, RefreshTokenRequest, RefreshTokenResponse, RegisterRequest, RegisterResponse
 from app.services.auth_service import AuthService, PlayerService, TokenService
 
 # Authentication routes for the OAuth service
@@ -55,3 +55,13 @@ def logout(token: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)
         return service.logout_player(token.credentials)
     except InvalidToken as e:
         raise HTTPException(status_code=401, detail=str(e))
+    
+@router.post("/register", response_model=RegisterResponse)
+def register(payload: RegisterRequest, service: AuthServiceDep):
+    """
+    Endppoint for user register
+    """
+    try:
+        return service.register_user(payload.email, payload.name, payload.password)
+    except InvalidRegistration as e:
+        raise HTTPException(status_code=409, detail=str(e))

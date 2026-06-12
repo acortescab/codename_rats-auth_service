@@ -1,9 +1,11 @@
 import logging
 
-from app.core.exceptions.auth import InvalidToken
-from app.schemas.auth import GuestLoginResponse, MeResponse
+from app.core.exceptions.auth import InvalidToken, InvalidRegistration
+from app.schemas.auth import GuestLoginResponse, MeResponse, RegisterResponse
 from app.services.player_service import PlayerService
 from app.services.token_service import TokenService
+
+from pydantic import EmailStr
 
 logger = logging.getLogger("__name__")
 
@@ -36,6 +38,19 @@ class AuthService:
             name=player.name,
             access_token=access_token, 
             refresh_token=refresh_token
+        )
+    
+    def register_user(self, email: EmailStr, name: str, password: str):
+        """
+        Registers a player
+        """
+        player = self.player_service.register_user(email, password, name)
+
+        return RegisterResponse(
+            id=player.id,
+            email=player.email,
+            name=player.name,
+            created_at=player.created_at
         )
     
     def get_player_from_token(self, token: str):
@@ -84,4 +99,3 @@ class AuthService:
             raise InvalidToken("Invalid token")
         
         self.token_service.get_and_revoke_token(jti)
-        

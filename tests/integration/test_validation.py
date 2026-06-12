@@ -4,7 +4,7 @@ from unittest.mock import create_autospec
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.core.exceptions.auth import InvalidToken
+from app.core.exceptions.auth import InvalidToken, InvalidRegistration
 from app.dependencies import get_auth_service, get_token_service
 from app.main import app
 from app.services.auth_service import AuthService
@@ -22,6 +22,44 @@ async def test_guest_login_missing_device_id_returns_422():
         response = await client.post(
             "/v0/auth/guest-login",
             json={}
+        )
+
+    assert response.status_code == 422
+
+@pytest.mark.asyncio
+async def test_register_email_format_returns_422():
+    """
+    Invalid email format should return 422
+    """
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
+
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/v0/auth/register",
+            json={
+                "email":"email",
+                "name":"newuser",
+                "password":"213daszz!d"
+            }
+        )
+
+    assert response.status_code == 422
+
+@pytest.mark.asyncio
+async def test_password_format_returns_422():
+    """
+    Invalid password format should return 422
+    """
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
+
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/v0/auth/register",
+            json={
+                "email":"email",
+                "name":"newuser",
+                "password":"d"
+            }
         )
 
     assert response.status_code == 422
@@ -103,5 +141,31 @@ async def test_guest_login_service_exception_returns_500():
         )
 
     assert response.status_code == 500
+
+    app.dependency_overrides.clear()
+
+@pytest.mark.asyncio
+async def test_register_user_service_exception_returns_409():
+    """
+    Email duplication should return 409
+    """
+    auth_service_mock = cast(AuthService, create_autospec(AuthService))
+    auth_service_mock.register_user.side_effect = InvalidRegistration("email invalid")
+
+    app.dependency_overrides[get_auth_service] = lambda: auth_service_mock
+
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
+
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/v0/auth/register",
+            json={
+                "email":"email@email.com",
+                "name":"newuser",
+                "password":"213daszz!d"
+            }
+        )
+
+    assert response.status_code == 409
 
     app.dependency_overrides.clear()
