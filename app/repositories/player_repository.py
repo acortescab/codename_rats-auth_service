@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy.orm import Session
 
 from app.core.security import hash_password
-from app.db.models.player import Player
+from app.db.models.player import Player, PlayerAccountType
 
 
 class PlayerRepository:
@@ -43,7 +43,7 @@ class PlayerRepository:
         player = Player(
             device_id=device_id,
             name=name,
-            account_type="guest"
+            account_type=PlayerAccountType.Guest
         )
 
         self.write_db.add(player)
@@ -59,7 +59,7 @@ class PlayerRepository:
             email=email,
             name=name,
             password=hash_password(password),
-            account_type="registered"
+            account_type=PlayerAccountType.Registered
         )
 
         self.write_db.add(player)
@@ -85,3 +85,22 @@ class PlayerRepository:
         return self.read_db.query(Player).filter(
             Player.email == email
         ).first()
+    
+    def upgrade_guest(self, id, email:str, password:str, name: str):
+        """
+        Upgrades a guest account to registered account
+        """
+        player = self.write_db.query(Player).filter(
+            Player.id == id
+        ).first()
+
+        player.device_id = None
+        player.email = email
+        player.password = hash_password(password)
+        player.name = name
+        player.account_type = PlayerAccountType.Registered
+
+        self.write_db.commit()
+        self.write_db.refresh(player)
+
+        return player

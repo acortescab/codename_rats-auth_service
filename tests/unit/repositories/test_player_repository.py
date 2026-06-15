@@ -39,8 +39,10 @@ def test_register_user(db_session_writer, db_session_reader):
     """
     Unit test creating a new registered-user
     """
+    # Arrange
     repo = PlayerRepository(db_session_writer, db_session_reader)
 
+    # Act
     created = repo.create_user(
         email="email@email.com",
         name="registered_user",
@@ -49,6 +51,34 @@ def test_register_user(db_session_writer, db_session_reader):
 
     player = repo.get_by_email("email@email.com")
 
+    # Assert
     assert player is not None
     assert player.account_type == "registered"
     assert player.id == created.id
+
+def test_upgrade_account(db_session_writer, db_session_reader):
+    """
+    Unit test for upgrading from guest to registered
+    """
+    # Arrange
+    repo = PlayerRepository(db_session_writer, db_session_reader)
+    
+    # Act
+    player = repo.create_guest(
+        device_id="device_999",
+        name="guest-test"
+    )
+
+    repo.upgrade_guest(
+        id=player.id,
+        email="email@email.com",
+        name="registered_user",
+        password="basd13.z112"
+    )
+
+    player = repo.get_by_email("email@email.com")
+
+    # Arrange
+    assert player is not None
+    assert player.account_type == "registered"
+    assert player.id == player.id

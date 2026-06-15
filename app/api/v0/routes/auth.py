@@ -51,7 +51,7 @@ def me(token: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)], s
     Endpoint for player recognition
     """
     try:
-        return service.get_player_from_token(token.credentials)
+        return service.me(token.credentials)
     except InvalidToken as e:
         raise HTTPException(status_code=401, detail=str(e))
     
@@ -85,3 +85,16 @@ def login(payload: LoginRequest, service: AuthServiceDep):
         return service.login(payload.email, payload.password)
     except InvalidCredentials as e:
         raise HTTPException(status_code=401, detail=str(e))
+    
+@router.post("/link-account", response_model=RegisterResponse)
+def link_account(payload: RegisterRequest, token: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)], 
+                 service: AuthServiceDep):
+    """
+    Endpoint for link account
+    """
+    try:
+        return service.link_account(payload.email, payload.name, payload.password, token.credentials)
+    except InvalidToken as e:
+        raise HTTPException(status_code=401, detail=str(e))
+    except InvalidRegistration as e:
+        raise HTTPException(status_code=409, detail=str(e))

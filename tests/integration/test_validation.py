@@ -82,7 +82,7 @@ async def test_me_invalid_token_returns_401():
     Invalid access token in header should return 401
     """
     auth_service_mock = cast(AuthService, create_autospec(AuthService))
-    auth_service_mock.get_player_from_token.side_effect = InvalidToken("Invalid token")
+    auth_service_mock.me.side_effect = InvalidToken("Invalid token")
 
     app.dependency_overrides[get_auth_service] = lambda: auth_service_mock
 
