@@ -5,8 +5,8 @@ from unittest.mock import create_autospec
 import pytest
 from fastapi.security import HTTPAuthorizationCredentials
 
-from app.core.exceptions.auth import InvalidToken
-from app.core.security import verify_password
+from app.core.exceptions.auth import InvalidRegistration, InvalidToken
+from app.core.security import hash_password, verify_password
 from app.db.models.player import Player
 from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.schemas.auth import GuestLoginResponse, LoginResponse, RegisterResponse
@@ -95,7 +95,7 @@ def test_me_success():
     auth_service = AuthService(player_service, token_service)
 
     # Act
-    result = auth_service.get_player_from_token("valid_token")
+    result = auth_service.me("valid_token")
 
     # Assert
     token_service.decode_token.assert_called_once_with("valid_token")
@@ -145,7 +145,7 @@ def test_me_invalid_token():
 
     # Act
     try:
-        auth_service.get_player_from_token("bad_token")
+        auth_service.me("bad_token")
         
         # Assert
         assert False
@@ -213,3 +213,107 @@ def test_login_success():
     assert result.email == mock_player.email
     assert result.access_token == "access_token_mock"
     assert result.refresh_token == "refresh_token_mock"
+
+def test_link_account_success():
+    """
+    Guest account should be converted to registered account
+    and return new tokens for same player.
+    """
+    # Arrange
+    token_service = cast(TokenService, create_autospec(TokenService))
+    player_service = cast(PlayerService, create_autospec(PlayerService))
+
+    mock_player = cast(Player, create_autospec(Player))
+    mock_player.id = uuid.uuid4()
+    mock_player.account_type = "guest"
+    mock_player.device_id ="device_123" 
+
+    player_service.repo.get_by_id.return_value = mock_player
+    player_service.repo.get_by_email.return_value = None
+
+    hash_password.hash.return_value = "hashed_password"
+
+    token_service.create_access_token.return_value = "access_token"
+    token_service.create_refresh_token.return_value = "refresh_token"
+
+    auth_service = AuthService(player_service, token_service)
+
+    # Act
+    result = auth_service.link_account(
+        player_id=mock_player.id,
+        email="test@example.com",
+        password="Password123"
+    )
+
+    # Assert
+    assert result.access_token == "access_token"
+    assert result.refresh_token == "refresh_token"
+
+    player_service.repo.get_by_id.assert_called_once_with(mock_player.id)
+    player_service.repo.get_by_email.assert_called_once_with("test@example.com")
+    hash_password.hash.assert_called_once_with("Password123")
+    player_service.repo.upgrade_guest.assert_called_once()
+    token_service.create_access_token.assert_called_once_with(mock_player.id)
+    token_service.create_refresh_token.assert_called_once_with(mock_player.id)
+
+def test_link_account_email_already_exists():
+    """
+    Cannot link account if provided email already exists
+    """
+    # Arrange
+    token_service = cast(TokenService, create_autospec(TokenService))
+    player_service = cast(PlayerService, create_autospec(PlayerService))
+
+    mock_player_new = cast(Player, create_autospec(Player))
+    mock_player_new.id = uuid.uuid4()
+    mock_player_new.account_type = "guest"
+    mock_player_new.device_id = "device_123"
+
+    mock_player = cast(Player, create_autospec(Player))
+    mock_player.id = uuid.uuid4()
+    mock_player.account_type = "registered"
+    mock_player.name = "user-123"
+    mock_player.email ="test@example.com" 
+
+    player_service.repo.get_by_email.return_value = mock_player
+
+    auth_service = AuthService(player_service, token_service)
+
+    auth_service.get_player_by_token.return_value = mock_player_new
+
+    # Act
+    try:
+        auth_service.link_account(
+            "test@mail.com", 
+            "userfake_123", 
+            "Password123", 
+            "access_token"
+        )
+
+        # Assert
+        assert False
+    except InvalidRegistration:
+        assert True
+
+def test_link_account_guest_not_found():
+    """
+    Cannot link if guest account for this device is not found
+    """
+    # Arrange
+    token_service = cast(TokenService, create_autospec(TokenService))
+    player_service = cast(PlayerService, create_autospec(PlayerService))
+
+    auth_service = AuthService(player_service, token_service)
+
+    auth_service.get_player_by_token.return_value = None
+
+    try:
+        auth_service.link_account(
+            "test@mail.com",
+            "userfake_123",
+            "Password123",
+            "access_token"
+        )
+        assert False
+    except InvalidRegistration:
+        assert True

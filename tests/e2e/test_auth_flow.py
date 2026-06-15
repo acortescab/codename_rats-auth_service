@@ -259,3 +259,49 @@ async def test_refresh_token_rejected_after_logout(async_client, get_app, db_ses
     finally:
         # revert functions override
         get_app.dependency_overrides.clear()
+    
+@pytest.mark.asyncio
+async def test_guest_link_login(async_client, get_app, db_session_writer):
+    """
+    E2E test to avoid token reuse after logout
+    """
+    # Override get_write_db/get_read_db functions used by the app 'default' behaviour
+    # to work with the rollback session db for this test
+    get_app.dependency_overrides[get_write_db] = lambda: db_session_writer
+    get_app.dependency_overrides[get_read_db] = lambda: db_session_writer
+
+    try:
+        login_res = await async_client.post(
+            "/v0/auth/guest-login",
+            json={"device_id": "device_456"}
+        )
+
+        assert login_res.status_code == 200
+
+        data = login_res.json()
+        refresh_token = data["refresh_token"]
+
+        link_res = await async_client.post(
+            "/v0/auth/link-account",
+            headers={"Authorization": f"Bearer {refresh_token}"},
+            json={
+                "email": "email@email.com",
+                "password": "12345as22134",
+                "name": "user134"
+            }
+        )
+
+        assert link_res.status_code == 200
+
+        login_res = await async_client.post(
+            "/v0/auth/login",
+            json={
+                "email": "email@email.com",
+                "password": "12345as22134"
+            }
+        )
+
+        assert login_res.status_code == 200
+    finally:
+        # revert functions override
+        get_app.dependency_overrides.clear()

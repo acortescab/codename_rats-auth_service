@@ -2,8 +2,9 @@ import logging
 
 from pydantic import EmailStr
 
-from app.core.exceptions.auth import InvalidCredentials, InvalidToken
+from app.core.exceptions.auth import InvalidCredentials, InvalidRegistration, InvalidToken
 from app.core.security import verify_password
+from app.db.models.player import PlayerAccountType
 from app.schemas.auth import GuestLoginResponse, LoginResponse, MeResponse, RegisterResponse
 from app.services.player_service import PlayerService
 from app.services.token_service import TokenService
@@ -54,29 +55,11 @@ class AuthService:
             created_at=player.created_at
         )
     
-    def get_player_from_token(self, token: str):
+    def me(self, token: str):
         """
         Returns player from token
         """
-        payload = self.token_service.decode_token(token)
-
-        if not payload:
-            logger.info(f"payload decoding error for token: {token}")
-            raise InvalidToken("Invalid token")
-        
-        sub = payload.get("sub")
-
-        if not sub:
-            logger.info(f"payload decoding error for token: {token}")
-            raise InvalidToken("Invalid token")
-
-        player = self.player_service.get_player_by_id(sub)
-
-        logger.info(f"sub value is {sub}")
-
-        if not player:
-            logger.info(f"payload decoding error for token: {token} & {sub}")
-            raise InvalidToken("Invalid token")
+        player = self.get_player_by_token(token)
 
         return MeResponse(
             id=player.id,
@@ -108,10 +91,15 @@ class AuthService:
         player = self.player_service.get_player_by_email(email)
  
         if not player:
-            return InvalidCredentials("Invalid login credentials")
+            logger.info("valid email not found")
+            raise InvalidCredentials("Invalid login credentials")
         
         if not verify_password(password, player.password):
-            return InvalidCredentials("Invalid login credentials")
+            logger.info("password hash not valid")
+            logger.info(f"plain: {password}")
+            logger.info(f"stored: {player.password}")
+            logger.info(f"verify result: {verify_password(password, player.password)}")
+            raise InvalidCredentials("Invalid login credentials")
         
         access_token = self.token_service.create_access_token(player.id)
         refresh_token = self.token_service.create_refresh_token(player.id)
@@ -125,3 +113,55 @@ class AuthService:
             access_token=access_token, 
             refresh_token=refresh_token
         )
+    
+    def link_account(self, email: EmailStr, name: str, password: str, token: str):
+        """
+        Links a guest-type account to email+password + rename of the username
+        """
+        player = self.get_player_by_token(token)
+        
+        if not player or not player.device_id or player.account_type == PlayerAccountType.Registered:
+            raise InvalidRegistration("Invalid guest account")
+        
+        duplicate = self.player_service.get_player_by_email(email)
+
+        if duplicate:
+            raise InvalidRegistration("Invalid registration")
+        
+        player = self.player_service.link_account(player.id, email, name, password)
+
+        if not player:
+            raise InvalidRegistration("Invalid registration")
+        
+        return RegisterResponse(
+            id=player.id,
+            email=player.email,
+            name=player.name,
+            created_at=player.created_at
+        )
+    
+    def get_player_by_token(self, token: str):
+        """
+        Returns player from token
+        """
+        payload = self.token_service.decode_token(token)
+
+        if not payload:
+            logger.info(f"payload decoding error for token: {token}")
+            raise InvalidToken("Invalid token")
+        
+        sub = payload.get("sub")
+
+        if not sub:
+            logger.info(f"payload decoding error for token: {token}")
+            raise InvalidToken("Invalid token")
+
+        player = self.player_service.get_player_by_id(sub)
+
+        logger.info(f"sub value is {sub}")
+
+        if not player:
+            logger.info(f"payload decoding error for token: {token} & {sub}")
+            raise InvalidToken("Invalid token")
+        
+        return player

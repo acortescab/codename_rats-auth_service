@@ -38,7 +38,7 @@ class PlayerService:
             raise InvalidRegistration("Email is already in use")
         
         print(f"password is {password}")
-        
+
         return self.repo.create_user(email, name, password)
     
     def get_player_by_id(self, player_id: str):
@@ -58,3 +58,9 @@ class PlayerService:
         Generates a random guest name using a UUID.
         """
         return f"guest-{uuid4().hex[:6]}"
+    
+    def link_account(self, player_id: str, email:str, password:str, name: str):
+        """
+        Upgrade guest account to registered account
+        """
+        return self.repo.upgrade_guest(player_id, email, password, name)
