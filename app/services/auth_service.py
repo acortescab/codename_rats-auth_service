@@ -1,11 +1,12 @@
 import logging
 
-from app.core.exceptions.auth import InvalidToken, InvalidRegistration
-from app.schemas.auth import GuestLoginResponse, MeResponse, RegisterResponse
+from pydantic import EmailStr
+
+from app.core.exceptions.auth import InvalidCredentials, InvalidToken
+from app.core.security import verify_password
+from app.schemas.auth import GuestLoginResponse, LoginResponse, MeResponse, RegisterResponse
 from app.services.player_service import PlayerService
 from app.services.token_service import TokenService
-
-from pydantic import EmailStr
 
 logger = logging.getLogger("__name__")
 
@@ -99,3 +100,28 @@ class AuthService:
             raise InvalidToken("Invalid token")
         
         self.token_service.get_and_revoke_token(jti)
+
+    def login(self, email: EmailStr, password: str):
+        """
+        Logins a player and returns token
+        """
+        player = self.player_service.get_player_by_email(email)
+ 
+        if not player:
+            return InvalidCredentials("Invalid login credentials")
+        
+        if not verify_password(password, player.password):
+            return InvalidCredentials("Invalid login credentials")
+        
+        access_token = self.token_service.create_access_token(player.id)
+        refresh_token = self.token_service.create_refresh_token(player.id)
+
+        self.player_service.repo.update_last_login(player.id)
+
+        return LoginResponse(
+            id=player.id,
+            name=player.name,
+            email=player.email,
+            access_token=access_token, 
+            refresh_token=refresh_token
+        )

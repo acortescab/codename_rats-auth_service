@@ -6,9 +6,10 @@ import pytest
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.core.exceptions.auth import InvalidToken
+from app.core.security import verify_password
 from app.db.models.player import Player
 from app.repositories.refresh_token_repository import RefreshTokenRepository
-from app.schemas.auth import GuestLoginResponse, RegisterResponse
+from app.schemas.auth import GuestLoginResponse, LoginResponse, RegisterResponse
 from app.services.auth_service import AuthService
 from app.services.player_service import PlayerService
 from app.services.token_service import TokenService
@@ -178,3 +179,37 @@ def test_register_success():
     assert result.id == mock_player.id
     assert result.name == mock_player.name
     assert result.email == mock_player.email
+
+def test_login_success():
+    """
+    Test that login returns a valid LoginResponse
+    """
+    # Arrange
+    token_service = cast(TokenService, create_autospec(TokenService))
+    player_service = cast(PlayerService, create_autospec(PlayerService))
+
+    mock_player = cast(Player, create_autospec(Player))
+    mock_player.id = uuid.uuid4()
+    mock_player.name = "user_123"
+    mock_player.email = "email@email.com"
+
+    player_service.get_player_by_email.return_value = mock_player
+
+    token_service.create_access_token.return_value = "access_token_mock"
+    token_service.create_refresh_token.return_value = "refresh_token_mock"
+
+    verify_password.return_value = True
+    
+    auth_service = AuthService(player_service, token_service)
+    
+    # Act
+    result = auth_service.login("email@email.com", "1314rdas.z")
+
+    # Assert
+    assert isinstance(result, LoginResponse)
+
+    assert result.id == mock_player.id
+    assert result.name == mock_player.name
+    assert result.email == mock_player.email
+    assert result.access_token == "access_token_mock"
+    assert result.refresh_token == "refresh_token_mock"

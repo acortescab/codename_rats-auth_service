@@ -16,3 +16,22 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhNmE3NWFlZ
 POST http://localhost:8000/v0/auth/logout HTTP/1.1
 content-type: application/json
 Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhNmE3NWFlZS04NTVhLTQ1YzQtYTQ5ZC1jMDNjNDhmYzYxZGMiLCJqdGkiOiJmMjBmM2JiMy0wODNlLTQyNTUtYjg1Mi02MWYzNzFiOWZkYTMiLCJleHAiOjE3ODE3MTE0ODQsImlhdCI6MTc4MTEwNjY4NH0.u0NmPbsrxIQ2987IVLVmCxU4tz7O-5dme4hzbbwcn3M
+
+###
+
+POST http://localhost:8000/v0/auth/register HTTP/1.1
+content-type: application/json
+
+{
+  "email": "email@email.com",
+  "name": "user_123",
+  "password": "12dashdawe123."
+}
+
+POST http://localhost:8000/v0/auth/login HTTP/1.1
+content-type: application/json
+
+{
+  "email": "email@email.com",
+  "password": "12dashdawe123"
+}

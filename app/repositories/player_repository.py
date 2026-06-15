@@ -2,8 +2,8 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from app.db.models.player import Player
 from app.core.security import hash_password
+from app.db.models.player import Player
 
 
 class PlayerRepository:

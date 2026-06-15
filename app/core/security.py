@@ -1,7 +1,7 @@
 from enum import Enum
 
+import bcrypt
 from fastapi.security import HTTPBearer
-from passlib.context import CryptContext
 
 
 class JWTAlgorithm(str, Enum):
@@ -14,16 +14,14 @@ class JWTAlgorithm(str, Enum):
     
 oauth2_scheme = HTTPBearer()
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 def hash_password(password: str) -> str:
     """
     Creates an encrypted hash for password
     """
-    return pwd_context.hash(password)
+    return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """
     Verifies is the plain password matchs with the hashed one
     """
-    return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(plain_password.encode(), hashed_password.encode())
