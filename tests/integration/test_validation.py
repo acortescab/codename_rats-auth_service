@@ -4,7 +4,7 @@ from unittest.mock import create_autospec
 import pytest
 from httpx import ASGITransport, AsyncClient
 
-from app.core.exceptions.auth import InvalidToken, InvalidRegistration
+from app.core.exceptions.auth import InvalidCredentials, InvalidRegistration, InvalidToken
 from app.dependencies import get_auth_service, get_token_service
 from app.main import app
 from app.services.auth_service import AuthService
@@ -167,5 +167,30 @@ async def test_register_user_service_exception_returns_409():
         )
 
     assert response.status_code == 409
+
+    app.dependency_overrides.clear()
+
+@pytest.mark.asyncio
+async def test_login_exception_returns_401():
+    """
+    Invalid login credentials should return 401 
+    """
+    auth_service_mock = cast(AuthService, create_autospec(AuthService))
+    auth_service_mock.login.side_effect = InvalidCredentials("email invalid")
+
+    app.dependency_overrides[get_auth_service] = lambda: auth_service_mock
+
+    transport = ASGITransport(app=app, raise_app_exceptions=False)
+
+    async with AsyncClient(transport=transport, base_url="http://test") as client:
+        response = await client.post(
+            "/v0/auth/register",
+            json={
+                "email":"email@email.com",
+                "password":"1111111"
+            }
+        )
+
+    assert response.status_code == 401
 
     app.dependency_overrides.clear()

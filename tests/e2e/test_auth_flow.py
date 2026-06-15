@@ -169,6 +169,60 @@ async def test_auth_full_lifecycle(async_client, get_app, db_session_writer):
         # revert functions override
         get_app.dependency_overrides.clear()
 
+@pytest.mark.asyncio
+async def test_register_login_sequence(async_client, get_app, db_session_writer):
+    """
+    E2E test for register + login sequence and refresh token
+    """
+    # Override get_write_db/get_read_db functions used by the app 'default' behaviour
+    # to work with the rollback session db for this test
+    get_app.dependency_overrides[get_write_db] = lambda: db_session_writer
+    get_app.dependency_overrides[get_read_db] = lambda: db_session_writer
+
+    try:
+        login_res = await async_client.post(
+            "/v0/auth/login",
+            json={
+                "email": "email@email.com",
+                "password": "1234522134"
+            }
+        )
+
+        assert login_res.status_code == 401
+
+        register_res = await async_client.post(
+            "/v0/auth/register",
+            json={
+                "email": "email@email.com",
+                "name": "user",
+                "password": "1234522134"
+            }
+        )
+
+        assert register_res.status_code == 200
+
+        login_res = await async_client.post(
+            "/v0/auth/login",
+            json={
+                "email": "email@email.com",
+                "password": "1234522134"
+            }
+        )
+
+        data = login_res.json()
+        refresh_token = data["refresh_token"]
+
+        reuse_res = await async_client.post(
+            "/v0/auth/refresh-token",
+            json={"refresh_token": refresh_token}
+        )
+
+        assert reuse_res.status_code == 200
+    finally:
+        # revert functions override
+        get_app.dependency_overrides.clear()
+
+@pytest.mark.asyncio
 async def test_refresh_token_rejected_after_logout(async_client, get_app, db_session_writer):
     """
     E2E test to avoid token reuse after logout

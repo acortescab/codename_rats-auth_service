@@ -1,7 +1,8 @@
 from uuid import uuid4
 
+from app.core.exceptions.auth import InvalidRegistration
 from app.repositories.player_repository import PlayerRepository
-from app.core.exceptions.auth import  InvalidRegistration
+
 
 class PlayerService:
     """
@@ -36,13 +37,21 @@ class PlayerService:
         if player:
             raise InvalidRegistration("Email is already in use")
         
+        print(f"password is {password}")
+        
         return self.repo.create_user(email, name, password)
     
     def get_player_by_id(self, player_id: str):
         """
-        Gets players by player_id
+        Gets player by player_id
         """
         return self.repo.get_by_id(player_id)
+    
+    def get_player_by_email(self, email: str):
+        """
+        Gets player by email
+        """
+        return self.repo.get_by_email(email)
 
     def generate_guest_name(self):
         """

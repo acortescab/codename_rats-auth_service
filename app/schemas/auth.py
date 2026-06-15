@@ -1,7 +1,8 @@
+from datetime import datetime
 from uuid import UUID, uuid4
 
-from pydantic import BaseModel, Field, EmailStr, field_validator
-from datetime import datetime
+from pydantic import BaseModel, EmailStr, Field, field_validator
+
 
 # guest login schemas
 class GuestLoginRequest(BaseModel):
@@ -71,3 +72,21 @@ class RegisterResponse(BaseModel):
     email: str
     name: str
     created_at: datetime
+
+# Login schemas
+class LoginRequest(BaseModel):
+    """
+    Request for login
+    """
+    email: EmailStr
+    password: str
+
+class LoginResponse(BaseModel):
+    """
+    Response model for login.
+    """
+    id: UUID = Field(default_factory=uuid4)
+    name: str
+    email: str
+    access_token: str
+    refresh_token: str
