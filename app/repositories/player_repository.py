@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
@@ -5,6 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.security import hash_password
 from app.db.models.player import Player, PlayerAccountType
 
+logger = logging.getLogger("__name__")
 
 class PlayerRepository:
     """

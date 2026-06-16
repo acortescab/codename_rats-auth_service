@@ -63,7 +63,9 @@ class AuthService:
 
         return MeResponse(
             id=player.id,
-            name=player.name
+            name=player.name,
+            email=player.email,
+            account_type=player.account_type
         )
     
     def logout_player(self, token: str):
@@ -82,7 +84,7 @@ class AuthService:
             logger.info(f"payload jti error: {payload}")
             raise InvalidToken("Invalid token")
         
-        self.token_service.get_and_revoke_token(jti)
+        self.token_service.revoke_token_by_jti(jti)
 
     def login(self, email: EmailStr, password: str):
         """
@@ -96,10 +98,9 @@ class AuthService:
         
         if not verify_password(password, player.password):
             logger.info("password hash not valid")
-            logger.info(f"plain: {password}")
-            logger.info(f"stored: {player.password}")
-            logger.info(f"verify result: {verify_password(password, player.password)}")
             raise InvalidCredentials("Invalid login credentials")
+        
+        self.token_service.revoke_token_by_player_id(player.id)
         
         access_token = self.token_service.create_access_token(player.id)
         refresh_token = self.token_service.create_refresh_token(player.id)
@@ -128,10 +129,12 @@ class AuthService:
         if duplicate:
             raise InvalidRegistration("Invalid registration")
         
-        player = self.player_service.link_account(player.id, email, name, password)
+        player = self.player_service.link_account(player.id, email, password, name)
 
         if not player:
             raise InvalidRegistration("Invalid registration")
+        
+        self.token_service.revoke_token_by_player_id(player.id)
         
         return RegisterResponse(
             id=player.id,
