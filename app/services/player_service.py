@@ -21,7 +21,7 @@ class PlayerService:
         player = self.repo.get_by_device_id(device_id)
 
         if player:
-            self.repo.update_last_login(player.id)
+            self.update_last_login(player.id)
             return player
 
         name = self.generate_guest_name()
@@ -64,3 +64,9 @@ class PlayerService:
         Upgrade guest account to registered account
         """
         return self.repo.upgrade_guest(player_id, email, password, name)
+    
+    def update_last_login(self, player_id: str):
+        """
+        Updates last login by player_id
+        """
+        self.repo.update_last_login(player_id)

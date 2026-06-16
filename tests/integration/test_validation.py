@@ -184,10 +184,10 @@ async def test_login_exception_returns_401():
 
     async with AsyncClient(transport=transport, base_url="http://test") as client:
         response = await client.post(
-            "/v0/auth/register",
+            "/v0/auth/login",
             json={
                 "email":"email@email.com",
-                "password":"1111111"
+                "password":"1111111A"
             }
         )
 

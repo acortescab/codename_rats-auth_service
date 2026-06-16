@@ -105,7 +105,7 @@ class AuthService:
         access_token = self.token_service.create_access_token(player.id)
         refresh_token = self.token_service.create_refresh_token(player.id)
 
-        self.player_service.repo.update_last_login(player.id)
+        self.player_service.update_last_login(player.id)
 
         return LoginResponse(
             id=player.id,

@@ -1,6 +1,6 @@
 import uuid
 from typing import cast
-from unittest.mock import create_autospec
+from unittest.mock import create_autospec, patch
 
 import pytest
 from fastapi.security import HTTPAuthorizationCredentials
@@ -9,6 +9,7 @@ from app.core.exceptions.auth import InvalidRegistration, InvalidToken
 from app.core.security import hash_password, verify_password
 from app.db.models.player import Player
 from app.repositories.refresh_token_repository import RefreshTokenRepository
+from app.repositories.player_repository import PlayerRepository
 from app.schemas.auth import GuestLoginResponse, LoginResponse, RegisterResponse
 from app.services.auth_service import AuthService
 from app.services.player_service import PlayerService
@@ -89,6 +90,8 @@ def test_me_success():
     mock_player = cast(Player, create_autospec(Player))
     mock_player.id = payload["sub"]
     mock_player.name = "test"
+    mock_player.email = "email@email.com"
+    mock_player.account_type = "registered"
 
     player_service.get_player_by_id.return_value = mock_player
 
@@ -103,6 +106,8 @@ def test_me_success():
 
     assert result.id == mock_player.id
     assert result.name == mock_player.name
+    assert result.email == mock_player.email
+    assert result.account_type == mock_player.account_type
 
 def test_logout_refresh_token():
     """
@@ -129,7 +134,7 @@ def test_logout_refresh_token():
 
     # Assert
     token_service.decode_token.assert_called_once_with(credentials)
-    token_service.get_and_revoke_token.assert_called_once_with("token_123")
+    token_service.revoke_token_by_jti.assert_called_once_with("token_123")
 
 def test_me_invalid_token():
     """
@@ -173,7 +178,7 @@ def test_register_success():
     result = auth_service.register_user("email@email.com", "user-123", "1314rdas.z")
 
     # Assert
-    assert player_service.get_or_create_guest.call_count == 1
+    assert player_service.register_user.call_count == 1
 
     assert isinstance(result, RegisterResponse)
     assert result.id == mock_player.id
@@ -197,22 +202,22 @@ def test_login_success():
 
     token_service.create_access_token.return_value = "access_token_mock"
     token_service.create_refresh_token.return_value = "refresh_token_mock"
-
-    verify_password.return_value = True
     
     auth_service = AuthService(player_service, token_service)
     
-    # Act
-    result = auth_service.login("email@email.com", "1314rdas.z")
+    with patch("app.services.auth_service.verify_password", return_value=True):
+        # Act
+        result = auth_service.login("email@email.com", "1314rdas.z")
 
-    # Assert
-    assert isinstance(result, LoginResponse)
+        # Assert
+        assert isinstance(result, LoginResponse)
 
-    assert result.id == mock_player.id
-    assert result.name == mock_player.name
-    assert result.email == mock_player.email
-    assert result.access_token == "access_token_mock"
-    assert result.refresh_token == "refresh_token_mock"
+        assert result.id == mock_player.id
+        assert result.name == mock_player.name
+        assert result.email == mock_player.email
+        assert result.access_token == "access_token_mock"
+        assert result.refresh_token == "refresh_token_mock"
+    
 
 def test_link_account_success():
     """
@@ -228,33 +233,45 @@ def test_link_account_success():
     mock_player.account_type = "guest"
     mock_player.device_id ="device_123" 
 
-    player_service.repo.get_by_id.return_value = mock_player
-    player_service.repo.get_by_email.return_value = None
+    mock_player_new = cast(Player, create_autospec(Player))
+    mock_player_new.id = mock_player.id
+    mock_player_new.account_type = "registered"
+    mock_player_new.device_id = None 
+    mock_player_new.email = "test@example.com"
+    mock_player_new.name = "new_user"
 
-    hash_password.hash.return_value = "hashed_password"
-
-    token_service.create_access_token.return_value = "access_token"
-    token_service.create_refresh_token.return_value = "refresh_token"
-
-    auth_service = AuthService(player_service, token_service)
-
-    # Act
-    result = auth_service.link_account(
-        player_id=mock_player.id,
-        email="test@example.com",
-        password="Password123"
+    credentials = HTTPAuthorizationCredentials(
+        scheme="Bearer",
+        credentials="refresh_token"
     )
 
-    # Assert
-    assert result.access_token == "access_token"
-    assert result.refresh_token == "refresh_token"
+    payload = {
+        "sub": uuid.uuid4()
+    }
 
-    player_service.repo.get_by_id.assert_called_once_with(mock_player.id)
-    player_service.repo.get_by_email.assert_called_once_with("test@example.com")
-    hash_password.hash.assert_called_once_with("Password123")
-    player_service.repo.upgrade_guest.assert_called_once()
-    token_service.create_access_token.assert_called_once_with(mock_player.id)
-    token_service.create_refresh_token.assert_called_once_with(mock_player.id)
+    token_service.decode_token.return_value = payload
+
+    player_service.get_player_by_id.return_value = mock_player
+    player_service.get_player_by_email.return_value = None
+    player_service.link_account.return_value = mock_player_new
+    
+    auth_service = AuthService(player_service, token_service)
+
+    with patch("app.core.security.hash_password", return_value="hashed_password"):
+        
+        # Act
+        result = auth_service.link_account(
+            email="test@example.com",
+            name="new_user",
+            password="Password123",
+            token=credentials
+        )
+
+        # Assert
+        assert isinstance(result, RegisterResponse)
+        player_service.get_player_by_email.assert_called_once_with("test@example.com")
+        player_service.link_account.assert_called_once()
+    
 
 def test_link_account_email_already_exists():
     """
@@ -263,6 +280,7 @@ def test_link_account_email_already_exists():
     # Arrange
     token_service = cast(TokenService, create_autospec(TokenService))
     player_service = cast(PlayerService, create_autospec(PlayerService))
+    player_repo = cast(PlayerRepository, create_autospec(PlayerRepository))
 
     mock_player_new = cast(Player, create_autospec(Player))
     mock_player_new.id = uuid.uuid4()
@@ -275,11 +293,22 @@ def test_link_account_email_already_exists():
     mock_player.name = "user-123"
     mock_player.email ="test@example.com" 
 
-    player_service.repo.get_by_email.return_value = mock_player
+    credentials = HTTPAuthorizationCredentials(
+        scheme="Bearer",
+        credentials="refresh_token"
+    )
+
+    payload = {
+        "sub": uuid.uuid4()
+    }
+
+    token_service.decode_token.return_value = payload
+
+    player_repo.get_by_email.return_value = mock_player
+    player_repo.get_by_id.return_value = mock_player_new
+    player_service.link_account.return_value = mock_player_new
 
     auth_service = AuthService(player_service, token_service)
-
-    auth_service.get_player_by_token.return_value = mock_player_new
 
     # Act
     try:
@@ -287,7 +316,7 @@ def test_link_account_email_already_exists():
             "test@mail.com", 
             "userfake_123", 
             "Password123", 
-            "access_token"
+            credentials
         )
 
         # Assert
@@ -302,10 +331,11 @@ def test_link_account_guest_not_found():
     # Arrange
     token_service = cast(TokenService, create_autospec(TokenService))
     player_service = cast(PlayerService, create_autospec(PlayerService))
+    token_repo = cast(RefreshTokenRepository, create_autospec(RefreshTokenRepository))
 
     auth_service = AuthService(player_service, token_service)
 
-    auth_service.get_player_by_token.return_value = None
+    token_repo.get_by_jti.return_value = None
 
     try:
         auth_service.link_account(

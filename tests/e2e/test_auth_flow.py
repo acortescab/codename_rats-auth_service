@@ -184,7 +184,7 @@ async def test_register_login_sequence(async_client, get_app, db_session_writer)
             "/v0/auth/login",
             json={
                 "email": "email@email.com",
-                "password": "1234522134"
+                "password": "1234522a134a"
             }
         )
 
@@ -195,7 +195,7 @@ async def test_register_login_sequence(async_client, get_app, db_session_writer)
             json={
                 "email": "email@email.com",
                 "name": "user",
-                "password": "1234522134"
+                "password": "1234522a134a"
             }
         )
 
@@ -205,9 +205,11 @@ async def test_register_login_sequence(async_client, get_app, db_session_writer)
             "/v0/auth/login",
             json={
                 "email": "email@email.com",
-                "password": "1234522134"
+                "password": "1234522a134a"
             }
         )
+
+        assert login_res.status_code == 200
 
         data = login_res.json()
         refresh_token = data["refresh_token"]
