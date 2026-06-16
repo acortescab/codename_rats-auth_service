@@ -12,15 +12,17 @@ def test_create_access_token_returns_token():
 
     This test mocks JWT encoding to isolate logic.
     """
-
+    # Arrange
     repo = cast(RefreshTokenRepository, create_autospec(RefreshTokenRepository))
     service = TokenService(repo)
 
     with patch("app.services.token_service.jwt.encode") as mock_encode:
         mock_encode.return_value = "access_token"
 
+        # Act
         token = service.create_access_token(1)
 
+        # Assert
         mock_encode.assert_called_once()
 
         args, kwargs = mock_encode.call_args
@@ -38,7 +40,7 @@ def test_create_refresh_token_saves_to_repository():
     - generates a JWT token
     - persists it via RefreshTokenRepository
     """
-
+    # Arrange
     repo = cast(RefreshTokenRepository, create_autospec(RefreshTokenRepository))
     repo.create.return_value = None
 
@@ -47,12 +49,11 @@ def test_create_refresh_token_saves_to_repository():
     with patch("app.services.token_service.jwt.encode") as mock_encode:
         mock_encode.return_value = "refresh_token"
 
+        # Act
         token = service.create_refresh_token(1)
 
-        # JWT generation check
+        # Assert
         mock_encode.assert_called_once()
-
-        # Repository interaction check
         repo.create.assert_called_once()
 
         assert token == "refresh_token"
@@ -62,7 +63,7 @@ def test_decode_token_returns_payload():
     Tests that decode_token correctly calls jwt.decode
     and returns the decoded payload.
     """
-
+    # Arrange
     repo = cast(RefreshTokenRepository, create_autospec(RefreshTokenRepository))
     service = TokenService(repo)
 
@@ -74,7 +75,9 @@ def test_decode_token_returns_payload():
     with patch("app.services.token_service.jwt.decode") as mock_decode:
         mock_decode.return_value = fake_payload
 
+        # Act
         result = service.decode_token("fake_token")
 
+        # Assert
         mock_decode.assert_called_once()
         assert result == fake_payload

@@ -15,4 +15,38 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhNmE3NWFlZ
 
 POST http://localhost:8000/v0/auth/logout HTTP/1.1
 content-type: application/json
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhNmE3NWFlZS04NTVhLTQ1YzQtYTQ5ZC1jMDNjNDhmYzYxZGMiLCJqdGkiOiJmMjBmM2JiMy0wODNlLTQyNTUtYjg1Mi02MWYzNzFiOWZkYTMiLCJleHAiOjE3ODE3MTE0ODQsImlhdCI6MTc4MTEwNjY4NH0.u0NmPbsrxIQ2987IVLVmCxU4tz7O-5dme4hzbbwcn3M
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiJhZmUzNmUyZS01OTA2LTQ2MDUtODI0Ni1jYTg4YjMyYTFhOTciLCJqdGkiOiIzODFlMGE5ZC1mZjQ2LTRjZTItYjYyZi1iODVlM2U1MDAxMDAiLCJleHAiOjE3ODIyMDQ5NTksImlhdCI6MTc4MTYwMDE1OX0.n8fKFBmCA7ZlzquD4yVeJ1c16bNvpVkbWFUydyN7i-I
+
+###
+
+POST http://localhost:8000/v0/auth/register HTTP/1.1
+content-type: application/json
+
+{
+  "email": "email@email.com",
+  "name": "user_123",
+  "password": "12dashdawe123"
+}
+
+###
+
+POST http://localhost:8000/v0/auth/login HTTP/1.1
+content-type: application/json
+
+{
+  "email": "email@email.com",
+  "password": "12dashdawe123"
+}
+
+###
+
+
+POST http://localhost:8000/v0/auth/link-account HTTP/1.1
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiI3ZjM5OWRlZS04Zjc1LTQyNWYtYTVlYy03MzFhYjg2NTBiNmMiLCJqdGkiOiIzN2Y3ODNlZC00NzQ3LTQ4YTItODg5My0xN2JlMTIxODczYzEiLCJleHAiOjE3ODIyMDQ5MjUsImlhdCI6MTc4MTYwMDEyNX0.PjPYaIwy55PdlYWJf4vynOU6FyZ_SxaeLEp4r1aHD30
+content-type: application/json
+
+{
+  "email": "email@email.com",
+  "name": "username-123",
+  "password": "12dashdawe123"
+}
