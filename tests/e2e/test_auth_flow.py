@@ -7,7 +7,7 @@ from app.db.session import get_read_db, get_write_db
 @pytest.mark.asyncio
 async def test_guest_login_persists_in_db(async_client, get_app, db_session_writer):
     """
-    E2E test with real DB validation + isolation.
+    E2E test with real DB validation + isolation for guest login
     """
     # Override get_write_db/get_read_db functions used by the app 'default' behaviour
     # to work with the rollback session db for this test
@@ -27,6 +27,73 @@ async def test_guest_login_persists_in_db(async_client, get_app, db_session_writ
         ).first()
 
         assert player is not None
+    finally:
+        # revert functions override
+        get_app.dependency_overrides.clear()
+
+@pytest.mark.asyncio
+async def test_register_persists_in_db(async_client, get_app, db_session_writer):
+    """
+    E2E test with real DB validation + isolation for register
+    """
+    # Override get_write_db/get_read_db functions used by the app 'default' behaviour
+    # to work with the rollback session db for this test
+    get_app.dependency_overrides[get_write_db] = lambda: db_session_writer
+    get_app.dependency_overrides[get_read_db] = lambda: db_session_writer
+
+    try:
+        response = await async_client.post(
+            "/v0/auth/register",
+            json={
+                "email":"email@email.com",
+                "name":"newuser",
+                "password":"213daszz!d"
+            }
+        )
+
+        assert response.status_code == 200
+
+        player = db_session_writer.query(Player).filter_by(
+            email="email@email.com"
+        ).first()
+
+        assert player is not None
+    finally:
+        # revert functions override
+        get_app.dependency_overrides.clear()
+
+@pytest.mark.asyncio
+async def test_register_same_email(async_client, get_app, db_session_writer):
+    """
+    E2E test with real DB multiple times with the same email
+    """
+    # Override get_write_db/get_read_db functions used by the app 'default' behaviour
+    # to work with the rollback session db for this test
+    get_app.dependency_overrides[get_write_db] = lambda: db_session_writer
+    get_app.dependency_overrides[get_read_db] = lambda: db_session_writer
+
+    try:
+        response = await async_client.post(
+            "/v0/auth/register",
+            json={
+                "email":"email@email.com",
+                "name":"newuser",
+                "password":"213daszz!d"
+            }
+        )
+
+        assert response.status_code == 200
+
+        response = await async_client.post(
+            "/v0/auth/register",
+            json={
+                "email":"email@email.com",
+                "name":"newuser",
+                "password":"213daszz!d"
+            }
+        )
+
+        assert response.status_code == 409
     finally:
         # revert functions override
         get_app.dependency_overrides.clear()
@@ -102,6 +169,62 @@ async def test_auth_full_lifecycle(async_client, get_app, db_session_writer):
         # revert functions override
         get_app.dependency_overrides.clear()
 
+@pytest.mark.asyncio
+async def test_register_login_sequence(async_client, get_app, db_session_writer):
+    """
+    E2E test for register + login sequence and refresh token
+    """
+    # Override get_write_db/get_read_db functions used by the app 'default' behaviour
+    # to work with the rollback session db for this test
+    get_app.dependency_overrides[get_write_db] = lambda: db_session_writer
+    get_app.dependency_overrides[get_read_db] = lambda: db_session_writer
+
+    try:
+        login_res = await async_client.post(
+            "/v0/auth/login",
+            json={
+                "email": "email@email.com",
+                "password": "1234522a134a"
+            }
+        )
+
+        assert login_res.status_code == 401
+
+        register_res = await async_client.post(
+            "/v0/auth/register",
+            json={
+                "email": "email@email.com",
+                "name": "user",
+                "password": "1234522a134a"
+            }
+        )
+
+        assert register_res.status_code == 200
+
+        login_res = await async_client.post(
+            "/v0/auth/login",
+            json={
+                "email": "email@email.com",
+                "password": "1234522a134a"
+            }
+        )
+
+        assert login_res.status_code == 200
+
+        data = login_res.json()
+        refresh_token = data["refresh_token"]
+
+        reuse_res = await async_client.post(
+            "/v0/auth/refresh-token",
+            json={"refresh_token": refresh_token}
+        )
+
+        assert reuse_res.status_code == 200
+    finally:
+        # revert functions override
+        get_app.dependency_overrides.clear()
+
+@pytest.mark.asyncio
 async def test_refresh_token_rejected_after_logout(async_client, get_app, db_session_writer):
     """
     E2E test to avoid token reuse after logout
@@ -135,6 +258,52 @@ async def test_refresh_token_rejected_after_logout(async_client, get_app, db_ses
         )
 
         assert reuse_res.status_code == 401
+    finally:
+        # revert functions override
+        get_app.dependency_overrides.clear()
+    
+@pytest.mark.asyncio
+async def test_guest_link_login(async_client, get_app, db_session_writer):
+    """
+    E2E test for guest-link-login final cycle
+    """
+    # Override get_write_db/get_read_db functions used by the app 'default' behaviour
+    # to work with the rollback session db for this test
+    get_app.dependency_overrides[get_write_db] = lambda: db_session_writer
+    get_app.dependency_overrides[get_read_db] = lambda: db_session_writer
+
+    try:
+        login_res = await async_client.post(
+            "/v0/auth/guest-login",
+            json={"device_id": "device_456"}
+        )
+
+        assert login_res.status_code == 200
+
+        data = login_res.json()
+        refresh_token = data["refresh_token"]
+
+        link_res = await async_client.post(
+            "/v0/auth/link-account",
+            headers={"Authorization": f"Bearer {refresh_token}"},
+            json={
+                "email": "email@email.com",
+                "password": "12345as22134",
+                "name": "user134"
+            }
+        )
+
+        assert link_res.status_code == 200
+
+        login_res = await async_client.post(
+            "/v0/auth/login",
+            json={
+                "email": "email@email.com",
+                "password": "12345as22134"
+            }
+        )
+
+        assert login_res.status_code == 200
     finally:
         # revert functions override
         get_app.dependency_overrides.clear()

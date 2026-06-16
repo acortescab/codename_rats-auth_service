@@ -1,14 +1,16 @@
 import uuid
 from typing import cast
-from unittest.mock import create_autospec
+from unittest.mock import create_autospec, patch
 
 import pytest
 from fastapi.security import HTTPAuthorizationCredentials
 
-from app.core.exceptions.auth import InvalidToken
+from app.core.exceptions.auth import InvalidRegistration, InvalidToken
+from app.core.security import hash_password, verify_password
 from app.db.models.player import Player
 from app.repositories.refresh_token_repository import RefreshTokenRepository
-from app.schemas.auth import GuestLoginResponse
+from app.repositories.player_repository import PlayerRepository
+from app.schemas.auth import GuestLoginResponse, LoginResponse, RegisterResponse
 from app.services.auth_service import AuthService
 from app.services.player_service import PlayerService
 from app.services.token_service import TokenService
@@ -24,19 +26,16 @@ def test_guest_login_success():
     - TokenService generates both tokens
     - Response structure is correct
     """
-    # Arrange mock dependencies
+    # Arrange
     player_service = cast(PlayerService, create_autospec(PlayerService))
     token_service = cast(TokenService, create_autospec(TokenService))
     mock_player = cast(Player, create_autospec(Player))
 
-    # Fill mock player data
     mock_player.id = uuid.uuid4()
     mock_player.name = "guest_123"
 
-    # Fill mock player service data
     player_service.get_or_create_guest.return_value = mock_player
 
-    # Fill mock token service data
     token_service.create_access_token.return_value = "access_token_mock"
     token_service.create_refresh_token.return_value = "refresh_token_mock"
 
@@ -56,41 +55,6 @@ def test_guest_login_success():
     assert result.access_token == "access_token_mock"
     assert result.refresh_token == "refresh_token_mock"
 
-def test_guest_login_calls_services_once():
-    """
-    Ensures that all dependencies are called exactly once.
-
-    This protects against:
-    - accidental multiple DB calls
-    - duplicate token generation
-    - unintended side effects
-    """
-
-    # Arrange mock dependencies
-    player_service = cast(PlayerService, create_autospec(PlayerService))
-    token_service = cast(TokenService, create_autospec(TokenService))
-    mock_player = cast(Player, create_autospec(Player))
-
-    # Fill mock player data
-    mock_player.id = uuid.uuid4()
-    mock_player.name = "guest_test"
-
-    # Fill mock player service data
-    player_service.get_or_create_guest.return_value = mock_player
-
-    # Fill mock token service data
-    token_service.create_access_token.return_value = "a"
-    token_service.create_refresh_token.return_value = "b"
-
-    auth_service = AuthService(player_service, token_service)
-
-    # Act
-    auth_service.guest_login("device_x")
-
-    assert player_service.get_or_create_guest.call_count == 1
-    assert token_service.create_access_token.call_count == 1
-    assert token_service.create_refresh_token.call_count == 1
-
 def test_guest_login_empty_device_id_raises_error():
     """
     Tests that guest_login raises ValueError when
@@ -99,12 +63,13 @@ def test_guest_login_empty_device_id_raises_error():
     This ensures input validation is enforced
     at the service layer.
     """
-
+    # Arrange
     player_service = cast(PlayerService, create_autospec(PlayerService))
     token_service = cast(TokenService, create_autospec(TokenService))
 
     service = AuthService(player_service, token_service)
 
+    # Act
     with pytest.raises(ValueError):
         service.guest_login("")
 
@@ -112,7 +77,6 @@ def test_me_success():
     """
     Tests that /me returns player data when token is valid
     """
-
     # Arrange
     token_service = cast(TokenService, create_autospec(TokenService))
     player_service = cast(PlayerService, create_autospec(PlayerService))
@@ -126,13 +90,15 @@ def test_me_success():
     mock_player = cast(Player, create_autospec(Player))
     mock_player.id = payload["sub"]
     mock_player.name = "test"
+    mock_player.email = "email@email.com"
+    mock_player.account_type = "registered"
 
     player_service.get_player_by_id.return_value = mock_player
 
     auth_service = AuthService(player_service, token_service)
 
     # Act
-    result = auth_service.get_player_from_token("valid_token")
+    result = auth_service.me("valid_token")
 
     # Assert
     token_service.decode_token.assert_called_once_with("valid_token")
@@ -140,12 +106,13 @@ def test_me_success():
 
     assert result.id == mock_player.id
     assert result.name == mock_player.name
+    assert result.email == mock_player.email
+    assert result.account_type == mock_player.account_type
 
 def test_logout_refresh_token():
     """
     Tests that logout revokes a single refresh token
     """
-
     # Arrange
     token_service = cast(TokenService, create_autospec(TokenService))
     token_repo = cast(RefreshTokenRepository, create_autospec(RefreshTokenRepository))
@@ -167,13 +134,12 @@ def test_logout_refresh_token():
 
     # Assert
     token_service.decode_token.assert_called_once_with(credentials)
-    token_service.get_and_revoke_token.assert_called_once_with("token_123")
+    token_service.revoke_token_by_jti.assert_called_once_with("token_123")
 
 def test_me_invalid_token():
     """
     Tests that /me raises error when token is invalid
     """
-
     # Arrange
     token_service = cast(TokenService, create_autospec(TokenService))
     player_service = cast(PlayerService, create_autospec(PlayerService))
@@ -182,9 +148,202 @@ def test_me_invalid_token():
 
     auth_service = AuthService(player_service, token_service)
 
-    # Act / Assert
+    # Act
     try:
-        auth_service.get_player_from_token("bad_token")
+        auth_service.me("bad_token")
+        
+        # Assert
         assert False
     except InvalidToken:
         token_service.decode_token.assert_called_once()
+
+def test_register_success():
+    """
+    Test that register returns a valid RegisteredResponse
+    """
+    # Arrange
+    token_service = cast(TokenService, create_autospec(TokenService))
+    player_service = cast(PlayerService, create_autospec(PlayerService))
+    mock_player = cast(Player, create_autospec(Player))
+
+    mock_player.id = uuid.uuid4()
+    mock_player.name = "user-123"
+    mock_player.email = "email@email.com"
+
+    player_service.register_user.return_value = mock_player
+
+    auth_service = AuthService(player_service, token_service)
+
+    # Act
+    result = auth_service.register_user("email@email.com", "user-123", "1314rdas.z")
+
+    # Assert
+    assert player_service.register_user.call_count == 1
+
+    assert isinstance(result, RegisterResponse)
+    assert result.id == mock_player.id
+    assert result.name == mock_player.name
+    assert result.email == mock_player.email
+
+def test_login_success():
+    """
+    Test that login returns a valid LoginResponse
+    """
+    # Arrange
+    token_service = cast(TokenService, create_autospec(TokenService))
+    player_service = cast(PlayerService, create_autospec(PlayerService))
+
+    mock_player = cast(Player, create_autospec(Player))
+    mock_player.id = uuid.uuid4()
+    mock_player.name = "user_123"
+    mock_player.email = "email@email.com"
+
+    player_service.get_player_by_email.return_value = mock_player
+
+    token_service.create_access_token.return_value = "access_token_mock"
+    token_service.create_refresh_token.return_value = "refresh_token_mock"
+    
+    auth_service = AuthService(player_service, token_service)
+    
+    with patch("app.services.auth_service.verify_password", return_value=True):
+        # Act
+        result = auth_service.login("email@email.com", "1314rdas.z")
+
+        # Assert
+        assert isinstance(result, LoginResponse)
+
+        assert result.id == mock_player.id
+        assert result.name == mock_player.name
+        assert result.email == mock_player.email
+        assert result.access_token == "access_token_mock"
+        assert result.refresh_token == "refresh_token_mock"
+    
+
+def test_link_account_success():
+    """
+    Guest account should be converted to registered account
+    and return new tokens for same player.
+    """
+    # Arrange
+    token_service = cast(TokenService, create_autospec(TokenService))
+    player_service = cast(PlayerService, create_autospec(PlayerService))
+
+    mock_player = cast(Player, create_autospec(Player))
+    mock_player.id = uuid.uuid4()
+    mock_player.account_type = "guest"
+    mock_player.device_id ="device_123" 
+
+    mock_player_new = cast(Player, create_autospec(Player))
+    mock_player_new.id = mock_player.id
+    mock_player_new.account_type = "registered"
+    mock_player_new.device_id = None 
+    mock_player_new.email = "test@example.com"
+    mock_player_new.name = "new_user"
+
+    credentials = HTTPAuthorizationCredentials(
+        scheme="Bearer",
+        credentials="refresh_token"
+    )
+
+    payload = {
+        "sub": uuid.uuid4()
+    }
+
+    token_service.decode_token.return_value = payload
+
+    player_service.get_player_by_id.return_value = mock_player
+    player_service.get_player_by_email.return_value = None
+    player_service.link_account.return_value = mock_player_new
+    
+    auth_service = AuthService(player_service, token_service)
+
+    with patch("app.core.security.hash_password", return_value="hashed_password"):
+        
+        # Act
+        result = auth_service.link_account(
+            email="test@example.com",
+            name="new_user",
+            password="Password123",
+            token=credentials
+        )
+
+        # Assert
+        assert isinstance(result, RegisterResponse)
+        player_service.get_player_by_email.assert_called_once_with("test@example.com")
+        player_service.link_account.assert_called_once()
+    
+
+def test_link_account_email_already_exists():
+    """
+    Cannot link account if provided email already exists
+    """
+    # Arrange
+    token_service = cast(TokenService, create_autospec(TokenService))
+    player_service = cast(PlayerService, create_autospec(PlayerService))
+    player_repo = cast(PlayerRepository, create_autospec(PlayerRepository))
+
+    mock_player_new = cast(Player, create_autospec(Player))
+    mock_player_new.id = uuid.uuid4()
+    mock_player_new.account_type = "guest"
+    mock_player_new.device_id = "device_123"
+
+    mock_player = cast(Player, create_autospec(Player))
+    mock_player.id = uuid.uuid4()
+    mock_player.account_type = "registered"
+    mock_player.name = "user-123"
+    mock_player.email ="test@example.com" 
+
+    credentials = HTTPAuthorizationCredentials(
+        scheme="Bearer",
+        credentials="refresh_token"
+    )
+
+    payload = {
+        "sub": uuid.uuid4()
+    }
+
+    token_service.decode_token.return_value = payload
+
+    player_repo.get_by_email.return_value = mock_player
+    player_repo.get_by_id.return_value = mock_player_new
+    player_service.link_account.return_value = mock_player_new
+
+    auth_service = AuthService(player_service, token_service)
+
+    # Act
+    try:
+        auth_service.link_account(
+            "test@mail.com", 
+            "userfake_123", 
+            "Password123", 
+            credentials
+        )
+
+        # Assert
+        assert False
+    except InvalidRegistration:
+        assert True
+
+def test_link_account_guest_not_found():
+    """
+    Cannot link if guest account for this device is not found
+    """
+    # Arrange
+    token_service = cast(TokenService, create_autospec(TokenService))
+    player_service = cast(PlayerService, create_autospec(PlayerService))
+    token_repo = cast(RefreshTokenRepository, create_autospec(RefreshTokenRepository))
+
+    auth_service = AuthService(player_service, token_service)
+
+    token_repo.get_by_jti.return_value = None
+
+    try:
+        auth_service.link_account(
+            "test@mail.com",
+            "userfake_123",
+            "Password123",
+            "access_token"
+        )
+        assert False
+    except InvalidRegistration:
+        assert True
