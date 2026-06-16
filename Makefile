@@ -6,6 +6,7 @@ COMPOSE_FILE_TEST=docker-compose.test.yml
 test:
 	docker compose -f $(COMPOSE_FILE_TEST) down -v
 	docker compose -f $(COMPOSE_FILE_TEST) up --build --abort-on-container-exit test
+	docker compose -f $(COMPOSE_FILE_TEST) down -v
 
 dev-up:
 	docker compose -f $(COMPOSE_FILE_DEV) up --build --abort-on-container-exit
