@@ -72,8 +72,8 @@ def test_upgrade_account(db_session_writer, db_session_reader):
     repo.upgrade_guest(
         id=player.id,
         email="email@email.com",
-        name="registered_user",
-        password="basd13.z112"
+        password="basd13.z112",
+        name="registered_user"
     )
 
     player = repo.get_by_email("email@email.com")

@@ -263,7 +263,7 @@ async def test_refresh_token_rejected_after_logout(async_client, get_app, db_ses
 @pytest.mark.asyncio
 async def test_guest_link_login(async_client, get_app, db_session_writer):
     """
-    E2E test to avoid token reuse after logout
+    E2E test for guest-link-login final cycle
     """
     # Override get_write_db/get_read_db functions used by the app 'default' behaviour
     # to work with the rollback session db for this test

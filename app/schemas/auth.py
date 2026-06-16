@@ -42,6 +42,8 @@ class MeResponse(BaseModel):
     """
     id: UUID = Field(default_factory=uuid4)
     name: str
+    email: str
+    account_type: str
 
 # Register schemas
 class RegisterRequest(BaseModel):

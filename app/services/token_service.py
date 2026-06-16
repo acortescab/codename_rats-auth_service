@@ -96,7 +96,7 @@ class TokenService:
         """
         return self.repo.get_by_jti(jti)
     
-    def get_and_revoke_token(self, jti: str):
+    def revoke_token_by_jti(self, jti: str):
         """
         Revokes token by jti
         """
@@ -104,5 +104,11 @@ class TokenService:
 
         if not revoked:
             raise InvalidToken("Invalid or revoked token")
+        
+    def revoke_token_by_player_id(self, player_id: int):
+        """
+        Revokes token by player_id
+        """
+        self.repo.revoke_by_player_id(player_id)
     
 

@@ -37,7 +37,7 @@ class RefreshTokenRepository:
         self.write_db.commit()
         return db_token
     
-    def get_by_player_id(self, player_id):
+    def get_by_player_id(self, player_id: int):
         """
         Gets a token by player id
         """
@@ -45,7 +45,7 @@ class RefreshTokenRepository:
             player_id == player_id
         ).first()
     
-    def get_by_jti(self, jti):
+    def get_by_jti(self, jti: str):
         """
         Gets a token by jti
         """
@@ -56,7 +56,7 @@ class RefreshTokenRepository:
             ~RefreshToken.revoked
         ).first()
 
-    def revoke_by_jti(self, jti):
+    def revoke_by_jti(self, jti: str):
         """
         Revokes a token by jti
         """
@@ -64,6 +64,22 @@ class RefreshTokenRepository:
 
         rows = self.write_db.query(RefreshToken).filter(
             RefreshToken.jti == jti,
+            ~RefreshToken.revoked
+        ).update(
+            {"revoked": True}
+        )
+
+        self.write_db.commit()
+        return rows > 0
+    
+    def revoke_by_player_id(self, player_id: int):
+        """
+        Revokes a token by player id
+        """
+        logger.info(f"revoke token request with player id: {player_id}")
+
+        rows = self.write_db.query(RefreshToken).filter(
+            RefreshToken.player_id == player_id,
             ~RefreshToken.revoked
         ).update(
             {"revoked": True}
