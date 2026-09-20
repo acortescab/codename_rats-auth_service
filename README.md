@@ -1,15 +1,198 @@
 # codename_rats-auth_service
-Auth login service for codename_rats
 
-# Tech Stack
-Python 3.12+
-FastAPI
+Authentication and user session service for the codename_rats platform.
 
-# Features
-OAuth service
+This project provides a FastAPI-based identity service with guest login, user registration, JWT-based authentication, refresh-token rotation, account linking, and health checks. It is designed to run locally with Docker Compose and supports PostgreSQL-backed persistence through SQLAlchemy and Alembic.
 
-# Architecture
-FastAPI application
+## Tech Stack
 
-# CI/CD Pipeline
+- Python 3.12+
+- FastAPI
+- PostgreSQL
+- SQLAlchemy
+- Alembic
+- Pydantic + Pydantic Settings
+- JWT via python-jose
+- bcrypt
+- Docker / Docker Compose
+- pytest
+
+## Features
+
+- Guest login flow
+- User registration and login
+- JWT access token validation
+- Refresh token support and rotation
+- Logout and token invalidation
+- Account linking for guest users
+- Health endpoint for service checks
+- Dockerized local development setup
+
+## Architecture
+
+The service is organized around a lightweight layered structure:
+
+- API layer: FastAPI routers under `app/api/v0/routes`
+- Services: core business logic under `app/services`
+- Repositories: database access logic under `app/repositories`
+- Models: database schema under `app/db/models`
+- Core utilities: security, config, and custom exceptions under `app/core`
+- Schemas: request/response validation under `app/schemas`
+
+## Project Structure
+
+```text
+.
+├── alembic/
+│   ├── versions/
+│   ├── env.py
+│   └── README
+├── app/
+│   ├── api/
+│   │   └── v0/
+│   │       └── routes/
+│   │           ├── auth.py
+│   │           └── health.py
+│   ├── core/
+│   │   ├── config.py
+│   │   ├── exceptions/
+│   │   └── security.py
+│   ├── db/
+│   │   ├── models/
+│   │   ├── base.py
+│   │   └── session.py
+│   ├── dependencies.py
+│   ├── factories.py
+│   ├── main.py
+│   ├── repositories/
+│   ├── schemas/
+│   └── services/
+├── infra/
+├── tests/
+├── .gitignore
+├── alembic.ini
+├── docker-compose.dev.yml
+├── docker-compose.test.yml
+├── Dockerfile
+├── entrypoint.sh
+├── Makefile
+├── pyproject.toml
+├── pytest.ini
+├── requirements.txt
+└── README.md
+```
+
+## Prerequisites
+
+Before running the project locally, make sure you have:
+
+- Docker and Docker Compose
+- Python 3.12+
+- pip
+- Access to a local PostgreSQL instance or use the included Docker service
+
+## Local Development
+
+### 1. Create environment variables
+
+Create a `.env` file in the project root with the following values:
+
+```env
+SECRET_KEY=your-super-secret-key
+DATABASE_URL_READER=postgresql://user:pass@db:5432/db
+DATABASE_URL_WRITER=postgresql://user:pass@db:5432/db
+ENV=dev
+```
+
+The application reads these values at startup through the settings loader in `app/core/config.py`.
+
+### 2. Start the development stack
+
+```bash
+make dev-up
+```
+
+This starts:
+
+- the PostgreSQL database service
+- the FastAPI application on port `8000`
+
+### 3. Stop the stack
+
+```bash
+make dev-down
+```
+
+### 4. Rebuild containers
+
+```bash
+make dev-rebuild
+```
+
+## Testing
+
+Run the test suite with:
+
+```bash
+make test
+```
+
+This uses the test Docker Compose configuration and runs the project’s automated checks in an isolated environment.
+
+## Useful Commands
+
+```bash
+# Start dev environment
+make dev-up
+
+# Stop dev environment
+make dev-down
+
+# Rebuild services
+make dev-rebuild
+
+# Run shell inside the API container
+make shell
+
+# Open PostgreSQL shell
+make shell-db
+
+# Generate Alembic migration
+make migrate msg="describe migration"
+
+# Apply latest migrations
+make update-db
+```
+
+## API Overview
+
+The service exposes versioned routes under `/v0`.
+
+### Health
+
+- `GET /v0/health/`
+
+### Auth
+
+- `POST /v0/auth/register`
+- `POST /v0/auth/login`
+- `POST /v0/auth/guest-login`
+- `POST /v0/auth/refresh-token`
+- `GET /v0/auth/me`
+- `POST /v0/auth/logout`
+- `POST /v0/auth/link-account`
+
+## Security Notes
+
+- Keep `SECRET_KEY` private and never commit it to source control.
+- Use environment variables or a local `.env` file for development only.
+- In production, rotate credentials and use secure environment configuration.
+
+## License
+
+This project is licensed under the terms described in the repository license file.
+
+## CI/CD
+
+The repository includes Docker-based validation flows and pytest support. The Makefile standardizes local development and testing commands for both development and test environments.
 
