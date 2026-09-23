@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+sqlalchemy
+python-jose[cryptography]
+bcrypt
+psycopg2-binary
+alembic
+pydantic-settings
+pydantic[email]
+python-dotenv
+pytest
+pytest-asyncio
+httpx
+httpx2
+ruff
+black
