@@ -1,3 +1,7 @@
+# Coverage
+
+![CI](https://github.com/acortescab/codename_rats-auth_service/actions/workflows/ci_tests.yml/badge.svg)
+
 # codename_rats-auth_service
 
 Authentication and user session service for the codename_rats platform.
@@ -70,9 +74,11 @@ The service is organized around a lightweight layered structure:
 ├── infra/
 ├── tests/
 ├── .gitignore
+├── .github/
+│   └── workflows/
+│       └── ci_tests.yml
 ├── alembic.ini
-├── docker-compose.dev.yml
-├── docker-compose.test.yml
+├── docker-compose.yml
 ├── Dockerfile
 ├── entrypoint.sh
 ├── Makefile
@@ -117,6 +123,8 @@ This starts:
 - the PostgreSQL database service
 - the FastAPI application on port `8000`
 
+The underlying Compose file is `docker-compose.yml`, which defines the `db` and `api` services and sets the `uvicorn` command for the API container.
+
 ### 3. Stop the stack
 
 ```bash
@@ -131,13 +139,14 @@ make dev-rebuild
 
 ## Testing
 
-Run the test suite with:
+Run lint and the test suite with Docker Compose:
 
 ```bash
-make test
+docker compose run --rm api ruff check .
+docker compose run --rm api pytest -q --cov=. --cov-report=xml
 ```
 
-This uses the test Docker Compose configuration and runs the project’s automated checks in an isolated environment.
+The repository CI workflow runs the same checks in GitHub Actions.
 
 ## Useful Commands
 
@@ -162,6 +171,9 @@ make migrate msg="describe migration"
 
 # Apply latest migrations
 make update-db
+
+# Build the API image without starting it
+docker compose build api
 ```
 
 ## API Overview
@@ -194,5 +206,13 @@ This project is licensed under the terms described in the repository license fil
 
 ## CI/CD
 
-The repository includes Docker-based validation flows and pytest support. The Makefile standardizes local development and testing commands for both development and test environments.
+The repository includes a GitHub Actions workflow at `.github/workflows/ci_tests.yml` that checks the project on pull requests to `develop` and `main`.
+
+The workflow:
+
+- builds the application image
+- runs `ruff check .`
+- runs `pytest -q --cov=. --cov-report=xml`
+
+This matches the Docker Compose setup used by the service and keeps CI aligned with the local runtime configuration.
 
