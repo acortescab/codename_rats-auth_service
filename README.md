@@ -88,6 +88,18 @@ The service is organized around a lightweight layered structure:
 └── README.md
 ```
 
+## Why Is It Structured This Way?
+
+This project intentionally separates the code into small, purpose-specific layers so that authentication logic stays predictable and testable as the service grows.
+
+- The API layer handles HTTP concerns only: request parsing, route registration, and response formatting. It should not contain business rules or persistence logic.
+- Services contain the domain behavior: login, registration, token validation, session lifecycle, and account linking. This keeps the core authentication flows in one place and makes them easier to test in isolation.
+- Repositories isolate database access from the rest of the application. That allows the service layer to operate on domain concepts instead of directly mixing SQLAlchemy logic with business rules.
+- Models and schema definitions clearly separate persistence concerns from request/response validation. This reduces the risk of accidentally leaking database structures into API contracts.
+- Core utilities centralize reusable concerns such as settings, security helpers, and custom exceptions so that the rest of the codebase remains consistent.
+
+The result is a service that is easier to reason about, easier to extend with new auth features, and simpler to validate with focused unit and integration tests.
+
 ## Prerequisites
 
 Before running the project locally, make sure you have:
