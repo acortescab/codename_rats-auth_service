@@ -32,5 +32,8 @@ RUN chmod +x /entrypoint.sh
 # Expose the port the FastAPI app will run on
 EXPOSE 8000
 
+# Use the entrypoint to run migrations before starting the app
+ENTRYPOINT ["/entrypoint.sh"]
+
 # Run migrations and start the app
-ENTRYPOINT ["bash","./entrypoint.sh"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
