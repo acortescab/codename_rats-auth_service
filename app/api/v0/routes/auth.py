@@ -1,9 +1,10 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.core.exceptions.auth import InvalidCredentials, InvalidRegistration, InvalidToken
+from app.core.rate_limit import limiter
 from app.core.security import oauth2_scheme
 from app.dependencies import get_auth_service, get_player_service, get_token_service
 from app.schemas.auth import (
@@ -28,7 +29,8 @@ TokenServiceDep = Annotated[TokenService, Depends(get_token_service)]
 PlayerServiceDep = Annotated[PlayerService, Depends(get_player_service)]
 
 @router.post("/guest-login", response_model=GuestLoginResponse)
-def guest_login(payload: GuestLoginRequest, service: AuthServiceDep):
+@limiter.limit("20/minute")
+def guest_login(request: Request, payload: GuestLoginRequest, service: AuthServiceDep):
     """
     Endpoint for guest login.
     """
@@ -75,9 +77,10 @@ def register(payload: RegisterRequest, service: AuthServiceDep):
         return service.register_user(payload.email, payload.name, payload.password)
     except InvalidRegistration as e:
         raise HTTPException(status_code=409, detail=str(e))
-    
+
+@limiter.limit("20/minute")
 @router.post("/login", response_model=LoginResponse)
-def login(payload: LoginRequest, service: AuthServiceDep):
+def login(request: Request, payload: LoginRequest, service: AuthServiceDep):
     """
     Endpoint for login
     """

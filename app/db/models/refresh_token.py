@@ -16,6 +16,7 @@ class RefreshToken(Base):
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
 
     player_id = Column(UUID(as_uuid=True), ForeignKey("players.id"), nullable=False)
+    family_id = Column(UUID(as_uuid=True), index=True)
     jti = Column(UUID(as_uuid=True), unique=True, nullable=False, default=uuid.uuid4)
     token_hash = Column(String, nullable=False, index=True)
     expires_at = Column(DateTime, nullable=False)
