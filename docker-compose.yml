@@ -20,11 +20,10 @@ services:
     volumes:
       - .:/app
     environment:
-      ENV: dev
+      ENV: ${ENV}
+      SECRET_KEY: ${SECRET_KEY}
       DATABASE_URL_READER: postgresql://user:pass@db:5432/db
       DATABASE_URL_WRITER: postgresql://user:pass@db:5432/db
-      SECRET_KEY: DeyLu5K0xn_MX-9HSCxHrn0lZ9ZDjk4b_Kw9U6cAUWJeaStr8NaJQnyB2JI-Yi-0oFd9ujlTgt0D35tTuCfPIw
     depends_on:
       db:
         condition: service_healthy
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000
