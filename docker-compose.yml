@@ -22,8 +22,8 @@ services:
     environment:
       ENV: ${ENV}
       SECRET_KEY: ${SECRET_KEY}
-      DATABASE_URL_READER: postgresql://user:pass@db:5432/db
-      DATABASE_URL_WRITER: postgresql://user:pass@db:5432/db
+      DATABASE_URL_READER: ${DATABASE_URL_READER}
+      DATABASE_URL_WRITER: ${DATABASE_URL_WRITER}
     depends_on:
       db:
         condition: service_healthy
