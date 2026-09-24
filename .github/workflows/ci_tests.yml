@@ -7,13 +7,19 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    environment: ${{ github.base_ref == 'main' && 'prod' || 'test' }}
+    env:
+      SECRET_KEY: ${{ secrets.SECRET_KEY }}
+      ENV: ${{ github.base_ref == 'main' && 'prod' || 'test' }}
+      DATABASE_URL_READER: ${{ secrets.DATABASE_URL_READER }}
+      DATABASE_URL_WRITER: ${{ secrets.DATABASE_URL_WRITER }}
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Build app image
-        run: docker compose build api
+        run: docker compose up --build --force-recreate -d
 
       - name: Run lint
         run: docker compose run --rm api ruff check .
