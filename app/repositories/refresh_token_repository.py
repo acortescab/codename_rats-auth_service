@@ -19,7 +19,7 @@ class RefreshTokenRepository:
         self.write_db = write_db
         self.read_db = read_db
 
-    def create(self, player_id, jti, token, expires_at: datetime):
+    def create(self, player_id, jti, token, expires_at: datetime, family_id=None):
         """
         Creates a new refresh token
         """
@@ -27,6 +27,7 @@ class RefreshTokenRepository:
 
         db_token = RefreshToken(
             player_id=player_id,
+            family_id=family_id,
             jti=jti,
             token_hash=token_hash,
             revoked=False,
@@ -45,16 +46,19 @@ class RefreshTokenRepository:
             player_id == player_id
         ).first()
     
-    def get_by_jti(self, jti: str):
+    def get_by_jti(self, jti: str, include_revoked: bool = False):
         """
-        Gets a token by jti
+        Gets a token by jti.
+        When include_revoked is True, it also returns revoked tokens to detect reuse.
         """
-        logger.info(f"revoke token request with jti: {jti}")
-        
-        return self.read_db.query(RefreshToken).filter(
-            RefreshToken.jti == jti,
-            ~RefreshToken.revoked
-        ).first()
+        logger.info(f"fetch token request with jti: {jti}, include_revoked={include_revoked}")
+
+        query = self.read_db.query(RefreshToken).filter(RefreshToken.jti == jti)
+
+        if not include_revoked:
+            query = query.filter(~RefreshToken.revoked)
+
+        return query.first()
 
     def revoke_by_jti(self, jti: str):
         """
@@ -64,6 +68,22 @@ class RefreshTokenRepository:
 
         rows = self.write_db.query(RefreshToken).filter(
             RefreshToken.jti == jti,
+            ~RefreshToken.revoked
+        ).update(
+            {"revoked": True}
+        )
+
+        self.write_db.commit()
+        return rows > 0
+
+    def revoke_by_family_id(self, family_id):
+        """
+        Revokes all active tokens in a family.
+        """
+        logger.info(f"revoke token family request with family id: {family_id}")
+
+        rows = self.write_db.query(RefreshToken).filter(
+            RefreshToken.family_id == family_id,
             ~RefreshToken.revoked
         ).update(
             {"revoked": True}
