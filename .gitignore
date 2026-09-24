@@ -219,3 +219,16 @@ __marimo__/
 
 # Secrets
 secrets/
+
+# Terraform
+infra/.terraform/*
+infra/*.tfstate
+infra/*.tfstate.*
+infra/*.tfvars
+infra/*.tfvars.json
+infra/crash.log
+infra/crash.*.log
+infra/override.tf
+infra/override.tf.json
+infra/*_override.tf
+infra/*_override.tf.json
