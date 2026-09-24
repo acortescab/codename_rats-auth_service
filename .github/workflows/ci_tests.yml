@@ -20,7 +20,7 @@ jobs:
         run: docker compose build api
 
       - name: Run lint
-        run: docker compose run --rm api ruff check .
+        run: docker compose run --rm api ruff check -no-cache.
 
       - name: Run tests
         run: docker compose run --rm api pytest -q --cov=. --cov-report=xml
