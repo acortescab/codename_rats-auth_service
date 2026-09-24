@@ -7,10 +7,10 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
-    environment: dev
+    environment: ${{ github.base_ref == 'main' && 'prod' || 'test' }}
     env:
       SECRET_KEY: ${{ secrets.SECRET_KEY }}
-      ENV: dev
+      ENV: ${{ github.base_ref == 'main' && 'prod' || 'test' }}
 
     steps:
       - name: Checkout repo
