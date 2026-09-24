@@ -29,8 +29,12 @@ COPY . .
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
+# Run container as non-root user
+RUN chown -R appuser:appuser /app /entrypoint.sh
+USER appuser
+
 # Expose the port the FastAPI app will run on
 EXPOSE 8000
 
 # Run migrations and start the app
-ENTRYPOINT ["bash","./entrypoint.sh"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
