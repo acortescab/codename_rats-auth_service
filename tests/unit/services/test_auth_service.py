@@ -6,10 +6,9 @@ import pytest
 from fastapi.security import HTTPAuthorizationCredentials
 
 from app.core.exceptions.auth import InvalidRegistration, InvalidToken
-from app.core.security import hash_password, verify_password
 from app.db.models.player import Player
-from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.repositories.player_repository import PlayerRepository
+from app.repositories.refresh_token_repository import RefreshTokenRepository
 from app.schemas.auth import GuestLoginResponse, LoginResponse, RegisterResponse
 from app.services.auth_service import AuthService
 from app.services.player_service import PlayerService
