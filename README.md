@@ -71,7 +71,6 @@ The service is organized around a lightweight layered structure:
 │   ├── repositories/
 │   ├── schemas/
 │   └── services/
-├── infra/
 ├── tests/
 ├── .gitignore
 ├── .github/
@@ -116,13 +115,16 @@ Before running the project locally, make sure you have:
 Create a `.env` file in the project root with the following values:
 
 ```env
-SECRET_KEY=your-super-secret-key
+ENV=dev
 DATABASE_URL_READER=postgresql://user:pass@db:5432/db
 DATABASE_URL_WRITER=postgresql://user:pass@db:5432/db
-ENV=dev
 ```
 
 The application reads these values at startup through the settings loader in `app/core/config.py`.
+
+In `dev`, `SECRET_KEY` is loaded automatically from `secrets/private_key.pem`, so you do not need to set it in `.env`.
+
+If you set `ENV` to a non-dev value, `SECRET_KEY` must be an RSA private key in PEM format (multi-line) in github secrets, because tokens are signed with `RS256`.
 
 ### 2. Start the development stack
 
@@ -191,6 +193,11 @@ docker compose build api
 ## API Overview
 
 The service exposes versioned routes under `/v0`.
+
+### Root and JWKS
+
+- `GET /`
+- `GET /.well-known/jwks.json`
 
 ### Health
 
