@@ -1,16 +1,19 @@
-name: CI - Tests
+name: CI/CD Pipeline
 
 on:
   pull_request:
     branches: ["develop", "main"]
+  push:
+    branches: ["main"]
 
 jobs:
   test:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    environment: ${{ github.base_ref == 'main' && 'prod' || 'test' }}
+    environment: test
     env:
       SECRET_KEY: ${{ secrets.SECRET_KEY }}
-      ENV: ${{ github.base_ref == 'main' && 'prod' || 'test' }}
+      ENV: test
       DATABASE_URL_READER: ${{ secrets.DATABASE_URL_READER }}
       DATABASE_URL_WRITER: ${{ secrets.DATABASE_URL_WRITER }}
 
@@ -31,3 +34,241 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           files: ./coverage.xml
+
+  push-to-ecr:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: prod
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: codename_rats-auth_service/app
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+  deploy:
+    needs: push-to-ecr
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: prod
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Deploy to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: codename_rats-auth_service/app
+          IMAGE_TAG: ${{ github.sha }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          DATABASE_URL_READER: ${{ secrets.DATABASE_URL_READER }}
+          DATABASE_URL_WRITER: ${{ secrets.DATABASE_URL_WRITER }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$EC2_SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
+          
+          ssh -i ~/.ssh/id_rsa $EC2_USER@$EC2_HOST << EOF
+          set -e
+          mkdir -p ~/codename_rats-auth_service
+          cd ~/codename_rats-auth_service
+          aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin $ECR_REGISTRY
+          
+          # Backup database only if it exists
+          if [ -f docker-compose-prod.yml ] && [ -f .current-image-tag ]; then
+            BACKUP_DIR="backups"
+            mkdir -p \$BACKUP_DIR
+            BACKUP_FILE="\$BACKUP_DIR/db_backup_\$(date +%s).sql"
+            echo "Creating database backup at \$BACKUP_FILE"
+            if docker compose -f docker-compose-prod.yml exec -T db pg_dump -U $DB_USER -d $DB_NAME > \$BACKUP_FILE 2>/dev/null; then
+              echo \$BACKUP_FILE > .last-backup-file
+              echo "Success: Database backup created"
+            else
+              echo "Warning: Could not backup database (it may not be running yet)"
+            fi
+          else
+            echo "Info: First deployment detected, skipping database backup"
+          fi
+          
+          # Save current image tag for rollback
+          if [ -f .current-image-tag ]; then
+            mv .current-image-tag .previous-image-tag
+          fi
+          echo "$IMAGE_TAG" > .current-image-tag
+          
+          export ECR_REGISTRY=$ECR_REGISTRY
+          export ECR_REPOSITORY=$ECR_REPOSITORY
+          export IMAGE_TAG=$IMAGE_TAG
+          export SECRET_KEY=$SECRET_KEY
+          export DATABASE_URL_READER=$DATABASE_URL_READER
+          export DATABASE_URL_WRITER=$DATABASE_URL_WRITER
+          export DB_USER=$DB_USER
+          export DB_PASSWORD=$DB_PASSWORD
+          export DB_NAME=$DB_NAME
+          curl -o docker-compose-prod.yml https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose-prod.yml
+          docker compose -f docker-compose-prod.yml up -d
+          
+          # Wait for db to be ready
+          echo "Waiting for database to be ready..."
+          for i in {1..30}; do
+            if docker compose -f docker-compose-prod.yml exec -T db pg_isready -U $DB_USER -d $DB_NAME; then
+              echo "Success: Database is ready"
+              break
+            fi
+            echo "Waiting... (\$i/30)"
+            sleep 2
+          done
+          
+          # Run Alembic migrations
+          echo "Info: Running database migrations..."
+          docker compose -f docker-compose-prod.yml exec -T api alembic upgrade head
+          EOF
+
+  smoke-tests:
+    needs: deploy
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: prod
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Wait for deployment to be ready
+        run: sleep 10
+
+      - name: Run smoke tests
+        env:
+          PROD_URL: ${{ vars.PROD_URL }}
+        run: |
+          # Health check
+          curl -f http://$PROD_URL/health || exit 1
+          
+          # Run e2e tests against production
+          pip install requests pytest
+          pytest tests/e2e/ -v --tb=short --base-url=http://$PROD_URL
+
+  rollback:
+    needs: smoke-tests
+    if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: prod
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Rollback to previous version
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: codename_rats-auth_service/app
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$EC2_SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
+          
+          ssh -i ~/.ssh/id_rsa $EC2_USER@$EC2_HOST << EOF
+          set -e
+          cd ~/codename_rats-auth_service
+          aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin $ECR_REGISTRY
+          
+          # Get previous image tag
+          if [ -f .previous-image-tag ]; then
+            PREVIOUS_TAG=\$(cat .previous-image-tag)
+            echo "Info: Rolling back to image: \$PREVIOUS_TAG"
+            
+            # Get backup file
+            if [ -f .last-backup-file ]; then
+              BACKUP_FILE=\$(cat .last-backup-file)
+              echo "Info: Restoring database from: \$BACKUP_FILE"
+              
+              # Stop current container
+              docker compose -f docker-compose-prod.yml down
+              
+              # Restore database backup
+              docker compose -f docker-compose-prod.yml up -d db
+              sleep 5
+              docker compose -f docker-compose-prod.yml exec -T db dropdb -U $DB_USER $DB_NAME || true
+              docker compose -f docker-compose-prod.yml exec -T db createdb -U $DB_USER $DB_NAME
+              docker compose -f docker-compose-prod.yml exec -T db psql -U $DB_USER -d $DB_NAME < \$BACKUP_FILE
+              echo "Success: Database restored"
+            else
+              echo "Warning: No backup file found. Proceeding with database state as-is."
+            fi
+            
+            # Restore previous image
+            export IMAGE_TAG=\$PREVIOUS_TAG
+            export ECR_REGISTRY=$ECR_REGISTRY
+            export ECR_REPOSITORY=$ECR_REPOSITORY
+            curl -o docker-compose-prod.yml https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose-prod.yml
+            docker compose -f docker-compose-prod.yml up -d
+            echo "Success: Application rolled back"
+          else
+            echo "Error: No previous image tag found. Manual intervention required."
+            exit 1
+          fi
+          EOF
