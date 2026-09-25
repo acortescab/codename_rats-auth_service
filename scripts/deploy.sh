@@ -17,5 +17,5 @@ if [ -f docker-compose-prod.yml ] && [ -f .current-image-tag ]; then
 fi
 
 echo "$IMAGE_TAG" > .current-image-tag
-curl -o docker-compose-prod.yml "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/main/docker-compose-prod.yml"
+curl -o docker-compose-prod.yml "https://raw.githubusercontent.com/acortescab/${GITHUB_REPOSITORY}/refs/heads/main/docker-compose-prod.yml"
 docker compose -f docker-compose-prod.yml up -d
