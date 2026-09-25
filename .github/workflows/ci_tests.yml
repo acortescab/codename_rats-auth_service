@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
     runs-on: ubuntu-latest
     environment: test
     env:
@@ -35,9 +35,9 @@ jobs:
         with:
           files: ./coverage.xml
 
-  push-to-ecr:
+  push-to-ecr-prod:
     needs: test
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.test.result == 'success'
     runs-on: ubuntu-latest
     environment: prod
     permissions:
@@ -70,7 +70,7 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
 
   deploy:
-    needs: push-to-ecr
+    needs: push-to-ecr-prod
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: prod
