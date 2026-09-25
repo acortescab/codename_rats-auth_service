@@ -128,7 +128,7 @@ jobs:
             SECRET_KEY='$SECRET_KEY' \
             DATABASE_URL_READER='$DATABASE_URL_READER' \
             DATABASE_URL_WRITER='$DATABASE_URL_WRITER' \
-            GITHUB_REPOSITORY='acortescab/${GITHUB_REPOSITORY}' \
+            GITHUB_REPOSITORY='${GITHUB_REPOSITORY}' \
             bash -s" < scripts/deploy.sh
   smoke-tests:
     needs: deploy
@@ -214,5 +214,5 @@ jobs:
             SECRET_KEY='$SECRET_KEY' \
             DATABASE_URL_READER='$DATABASE_URL_READER' \
             DATABASE_URL_WRITER='$DATABASE_URL_WRITER' \
-            GITHUB_REPOSITORY='acortescab/${GITHUB_REPOSITORY}' \
+            GITHUB_REPOSITORY='${GITHUB_REPOSITORY}' \
             bash -s" < scripts/rollback.sh
