@@ -3,9 +3,12 @@ name: CI - Tests
 on:
   pull_request:
     branches: ["develop", "main"]
+  push:
+    branches: ["main"]
 
 jobs:
   test:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     environment: ${{ github.base_ref == 'main' && 'prod' || 'test' }}
     env:
@@ -31,3 +34,98 @@ jobs:
         uses: codecov/codecov-action@v5
         with:
           files: ./coverage.xml
+
+  push-to-ecr:
+    needs: test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: prod
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to Amazon ECR
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: codename_rats-auth_service/app
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker tag $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+
+  deploy:
+    needs: push-to-ecr
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    environment: prod
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: eu-west-1
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Deploy to EC2
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_USER: ${{ secrets.EC2_USER }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: codename_rats-auth_service/app
+          IMAGE_TAG: ${{ github.sha }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          DATABASE_URL_READER: ${{ secrets.DATABASE_URL_READER }}
+          DATABASE_URL_WRITER: ${{ secrets.DATABASE_URL_WRITER }}
+          DB_USER: ${{ secrets.DB_USER }}
+          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+          DB_NAME: ${{ secrets.DB_NAME }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$EC2_SSH_KEY" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
+          
+          ssh -i ~/.ssh/id_rsa $EC2_USER@$EC2_HOST << 'EOF'
+          set -e
+          mkdir -p ~/codename_rats-auth_service
+          cd ~/codename_rats-auth_service
+          aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin $ECR_REGISTRY
+          export ECR_REGISTRY=$ECR_REGISTRY
+          export ECR_REPOSITORY=$ECR_REPOSITORY
+          export IMAGE_TAG=$IMAGE_TAG
+          export SECRET_KEY=$SECRET_KEY
+          export DATABASE_URL_READER=$DATABASE_URL_READER
+          export DATABASE_URL_WRITER=$DATABASE_URL_WRITER
+          export DB_USER=$DB_USER
+          export DB_PASSWORD=$DB_PASSWORD
+          export DB_NAME=$DB_NAME
+          curl -o docker-compose-prod.yml https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose-prod.yml
+          docker compose -f docker-compose-prod.yml up -d
+          EOF
