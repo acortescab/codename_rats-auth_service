@@ -128,6 +128,7 @@ jobs:
             SECRET_KEY='$SECRET_KEY' \
             DATABASE_URL_READER='$DATABASE_URL_READER' \
             DATABASE_URL_WRITER='$DATABASE_URL_WRITER' \
+            GITHUB_REPOSITORY='acortescab/${GITHUB_REPOSITORY}' \
             bash -s" < scripts/deploy.sh
   smoke-tests:
     needs: deploy
@@ -166,6 +167,9 @@ jobs:
       contents: read
 
     steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
@@ -176,7 +180,17 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Rollback to previous version
+      - name: Setup SSH
+        env:
+          EC2_HOST: ${{ secrets.EC2_HOST }}
+          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          echo "$EC2_SSH_KEY" | tr -d '\r' > ~/.ssh/ec2.pem
+          chmod 400 ~/.ssh/ec2.pem
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+
+      - name: Connect SSH and rollback
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_USER: ${{ secrets.EC2_USER }}
@@ -186,50 +200,19 @@ jobs:
           DB_USER: ${{ secrets.DB_USER }}
           DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
           DB_NAME: ${{ secrets.DB_NAME }}
+          SECRET_KEY: ${{ secrets.SECRET_KEY }}
+          DATABASE_URL_READER: ${{ secrets.DATABASE_URL_READER }}
+          DATABASE_URL_WRITER: ${{ secrets.DATABASE_URL_WRITER }}
         run: |
-          mkdir -p ~/.ssh
-          echo "$EC2_SSH_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
-          
-          ssh -i ~/.ssh/id_rsa $EC2_USER@$EC2_HOST << EOF
-          set -e
-          cd ~/codename_rats-auth_service
-          aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin $ECR_REGISTRY
-          
-          # Get previous image tag
-          if [ -f .previous-image-tag ]; then
-            PREVIOUS_TAG=\$(cat .previous-image-tag)
-            echo "Info: Rolling back to image: \$PREVIOUS_TAG"
-            
-            # Get backup file
-            if [ -f .last-backup-file ]; then
-              BACKUP_FILE=\$(cat .last-backup-file)
-              echo "Info: Restoring database from: \$BACKUP_FILE"
-              
-              # Stop current container
-              docker compose -f docker-compose-prod.yml down
-              
-              # Restore database backup
-              docker compose -f docker-compose-prod.yml up -d db
-              sleep 5
-              docker compose -f docker-compose-prod.yml exec -T db dropdb -U $DB_USER $DB_NAME || true
-              docker compose -f docker-compose-prod.yml exec -T db createdb -U $DB_USER $DB_NAME
-              docker compose -f docker-compose-prod.yml exec -T db psql -U $DB_USER -d $DB_NAME < \$BACKUP_FILE
-              echo "Success: Database restored"
-            else
-              echo "Warning: No backup file found. Proceeding with database state as-is."
-            fi
-            
-            # Restore previous image
-            export IMAGE_TAG=\$PREVIOUS_TAG
-            export ECR_REGISTRY=$ECR_REGISTRY
-            export ECR_REPOSITORY=$ECR_REPOSITORY
-            curl -o docker-compose-prod.yml https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose-prod.yml
-            docker compose -f docker-compose-prod.yml up -d
-            echo "Success: Application rolled back"
-          else
-            echo "Error: No previous image tag found. Manual intervention required."
-            exit 1
-          fi
-          EOF
+          chmod +x scripts/rollback.sh
+          ssh -i ~/.ssh/ec2.pem "$EC2_USER@$EC2_HOST" \
+            "ECR_REGISTRY='$ECR_REGISTRY' \
+            ECR_REPOSITORY='$ECR_REPOSITORY' \
+            DB_USER='$DB_USER' \
+            DB_PASSWORD='$DB_PASSWORD' \
+            DB_NAME='$DB_NAME' \
+            SECRET_KEY='$SECRET_KEY' \
+            DATABASE_URL_READER='$DATABASE_URL_READER' \
+            DATABASE_URL_WRITER='$DATABASE_URL_WRITER' \
+            GITHUB_REPOSITORY='acortescab/${GITHUB_REPOSITORY}' \
+            bash -s" < scripts/rollback.sh
