@@ -92,82 +92,45 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Deploy to EC2
+      - name: Set up SSH
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ secrets.EC2_USER }}
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: codename_rats-auth_service/app
-          IMAGE_TAG: ${{ github.sha }}
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
-          DATABASE_URL_READER: ${{ secrets.DATABASE_URL_READER }}
-          DATABASE_URL_WRITER: ${{ secrets.DATABASE_URL_WRITER }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_NAME: ${{ secrets.DB_NAME }}
         run: |
           mkdir -p ~/.ssh
           echo "$EC2_SSH_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
-          
-          ssh -i ~/.ssh/id_rsa $EC2_USER@$EC2_HOST << EOF
-          set -e
-          mkdir -p ~/codename_rats-auth_service
-          cd ~/codename_rats-auth_service
-          aws ecr get-login-password --region eu-west-1 | docker login --username AWS --password-stdin $ECR_REGISTRY
-          
-          # Backup database only if it exists
-          if [ -f docker-compose-prod.yml ] && [ -f .current-image-tag ]; then
-            BACKUP_DIR="backups"
-            mkdir -p \$BACKUP_DIR
-            BACKUP_FILE="\$BACKUP_DIR/db_backup_\$(date +%s).sql"
-            echo "Creating database backup at \$BACKUP_FILE"
-            if docker compose -f docker-compose-prod.yml exec -T db pg_dump -U $DB_USER -d $DB_NAME > \$BACKUP_FILE 2>/dev/null; then
-              echo \$BACKUP_FILE > .last-backup-file
-              echo "Success: Database backup created"
-            else
-              echo "Warning: Could not backup database (it may not be running yet)"
-            fi
-          else
-            echo "Info: First deployment detected, skipping database backup"
-          fi
-          
-          # Save current image tag for rollback
-          if [ -f .current-image-tag ]; then
-            mv .current-image-tag .previous-image-tag
-          fi
-          echo "$IMAGE_TAG" > .current-image-tag
-          
-          export ECR_REGISTRY=$ECR_REGISTRY
-          export ECR_REPOSITORY=$ECR_REPOSITORY
-          export IMAGE_TAG=$IMAGE_TAG
-          export SECRET_KEY=$SECRET_KEY
-          export DATABASE_URL_READER=$DATABASE_URL_READER
-          export DATABASE_URL_WRITER=$DATABASE_URL_WRITER
-          export DB_USER=$DB_USER
-          export DB_PASSWORD=$DB_PASSWORD
-          export DB_NAME=$DB_NAME
-          curl -o docker-compose-prod.yml https://raw.githubusercontent.com/${{ github.repository }}/main/docker-compose-prod.yml
-          docker compose -f docker-compose-prod.yml up -d
-          
-          # Wait for db to be ready
-          echo "Waiting for database to be ready..."
-          for i in {1..30}; do
-            if docker compose -f docker-compose-prod.yml exec -T db pg_isready -U $DB_USER -d $DB_NAME; then
-              echo "Success: Database is ready"
-              break
-            fi
-            echo "Waiting... (\$i/30)"
-            sleep 2
-          done
-          
-          # Run Alembic migrations
-          echo "Info: Running database migrations..."
-          docker compose -f docker-compose-prod.yml exec -T api alembic upgrade head
-          EOF
 
+      - name: Connect SSH and deploy
+        env:
+            EC2_HOST: ${{ secrets.EC2_HOST }}
+            EC2_USER: ${{ secrets.EC2_USER }}
+            EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+            ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+            ECR_REPOSITORY: codename_rats-auth_service/app
+            IMAGE_TAG: ${{ github.sha }}
+            GITHUB_REPOSITORY: ${{ github.repository }}
+            SECRET_KEY: ${{ secrets.SECRET_KEY }}
+            DATABASE_URL_READER: ${{ secrets.DATABASE_URL_READER }}
+            DATABASE_URL_WRITER: ${{ secrets.DATABASE_URL_WRITER }}
+            DB_USER: ${{ secrets.DB_USER }}
+            DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+            DB_NAME: ${{ secrets.DB_NAME }}
+        run: |
+          chmod +x scripts/deploy.sh
+          ssh -i ~/.ssh/id_rsa "$EC2_USER@$EC2_HOST" \
+            "ECR_REGISTRY='$ECR_REGISTRY' \
+            ECR_REPOSITORY='$ECR_REPOSITORY' \
+            IMAGE_TAG='$IMAGE_TAG' \
+            GITHUB_REPOSITORY='$GITHUB_REPOSITORY' \
+            DB_USER='$DB_USER' \
+            DB_PASSWORD='$DB_PASSWORD' \
+            DB_NAME='$DB_NAME' \
+            SECRET_KEY='$SECRET_KEY' \
+            DATABASE_URL_READER='$DATABASE_URL_READER' \
+            DATABASE_URL_WRITER='$DATABASE_URL_WRITER' \
+            bash -s" < scripts/deploy.sh
   smoke-tests:
     needs: deploy
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
