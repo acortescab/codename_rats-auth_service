@@ -92,15 +92,15 @@ jobs:
         id: login-ecr
         uses: aws-actions/amazon-ecr-login@v2
 
-      - name: Set up SSH
+      - name: Setup SSH
         env:
           EC2_HOST: ${{ secrets.EC2_HOST }}
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
         run: |
           mkdir -p ~/.ssh
-          echo "$EC2_SSH_KEY" > ~/.ssh/id_rsa
-          chmod 600 ~/.ssh/id_rsa
-          ssh-keyscan -H $EC2_HOST >> ~/.ssh/known_hosts
+          printf '%s\n' "$EC2_SSH_KEY" > ~/.ssh/ec2.pem
+          chmod 400 ~/.ssh/ec2.pem
+          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts
 
       - name: Connect SSH and deploy
         env:
@@ -110,7 +110,6 @@ jobs:
             ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
             ECR_REPOSITORY: codename_rats-auth_service/app
             IMAGE_TAG: ${{ github.sha }}
-            GITHUB_REPOSITORY: ${{ github.repository }}
             SECRET_KEY: ${{ secrets.SECRET_KEY }}
             DATABASE_URL_READER: ${{ secrets.DATABASE_URL_READER }}
             DATABASE_URL_WRITER: ${{ secrets.DATABASE_URL_WRITER }}
@@ -119,11 +118,10 @@ jobs:
             DB_NAME: ${{ secrets.DB_NAME }}
         run: |
           chmod +x scripts/deploy.sh
-          ssh -i ~/.ssh/id_rsa "$EC2_USER@$EC2_HOST" \
+          ssh -i ~/.ssh/ec2.pem "$EC2_USER@$EC2_HOST" \
             "ECR_REGISTRY='$ECR_REGISTRY' \
             ECR_REPOSITORY='$ECR_REPOSITORY' \
             IMAGE_TAG='$IMAGE_TAG' \
-            GITHUB_REPOSITORY='$GITHUB_REPOSITORY' \
             DB_USER='$DB_USER' \
             DB_PASSWORD='$DB_PASSWORD' \
             DB_NAME='$DB_NAME' \
