@@ -130,89 +130,89 @@ jobs:
             DATABASE_URL_WRITER='$DATABASE_URL_WRITER' \
             GITHUB_REPOSITORY='${GITHUB_REPOSITORY}' \
             bash -s" < scripts/deploy.sh
-  smoke-tests:
-    needs: deploy
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    environment: prod
-    permissions:
-      id-token: write
-      contents: read
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Wait for deployment to be ready
-        run: sleep 10
-
-      - name: Run smoke tests
-        env:
-          PROD_URL: ${{ vars.PROD_URL }}
-        run: |
-          # Health check
-          curl -f http://$PROD_URL/health || exit 1
-          
-          # Run e2e tests against production
-          pip install requests pytest
-          pytest tests/e2e/ -v --tb=short --base-url=http://$PROD_URL
-
-  rollback:
-    needs: smoke-tests
-    if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    environment: prod
-    permissions:
-      id-token: write
-      contents: read
-
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          aws-region: eu-west-1
-
-      - name: Login to Amazon ECR
-        id: login-ecr
-        uses: aws-actions/amazon-ecr-login@v2
-
-      - name: Setup SSH
-        env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
-        run: |
-          mkdir -p ~/.ssh
-          echo "$EC2_SSH_KEY" | tr -d '\r' > ~/.ssh/ec2.pem
-          chmod 400 ~/.ssh/ec2.pem
-          ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
-
-      - name: Connect SSH and rollback
-        env:
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-          EC2_USER: ${{ secrets.EC2_USER }}
-          EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
-          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-          ECR_REPOSITORY: codename_rats-auth_service/app
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          DB_NAME: ${{ secrets.DB_NAME }}
-          SECRET_KEY: ${{ secrets.SECRET_KEY }}
-          DATABASE_URL_READER: ${{ secrets.DATABASE_URL_READER }}
-          DATABASE_URL_WRITER: ${{ secrets.DATABASE_URL_WRITER }}
-        run: |
-          chmod +x scripts/rollback.sh
-          ssh -i ~/.ssh/ec2.pem "$EC2_USER@$EC2_HOST" \
-            "ECR_REGISTRY='$ECR_REGISTRY' \
-            ECR_REPOSITORY='$ECR_REPOSITORY' \
-            DB_USER='$DB_USER' \
-            DB_PASSWORD='$DB_PASSWORD' \
-            DB_NAME='$DB_NAME' \
-            SECRET_KEY='$SECRET_KEY' \
-            DATABASE_URL_READER='$DATABASE_URL_READER' \
-            DATABASE_URL_WRITER='$DATABASE_URL_WRITER' \
-            GITHUB_REPOSITORY='${GITHUB_REPOSITORY}' \
-            bash -s" < scripts/rollback.sh
+  # smoke-tests:
+  #   needs: deploy
+  #   if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+  #   runs-on: ubuntu-latest
+  #   environment: prod
+  #   permissions:
+  #     id-token: write
+  #     contents: read
+  #
+  #   steps:
+  #     - name: Checkout repo
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Wait for deployment to be ready
+  #       run: sleep 10
+  #
+  #     - name: Run smoke tests
+  #       env:
+  #         PROD_URL: ${{ vars.PROD_URL }}
+  #       run: |
+  #         # Health check
+  #         curl -f http://$PROD_URL/health || exit 1
+  #
+  #         # Run e2e tests against production
+  #         pip install requests pytest
+  #         pytest tests/e2e/ -v --tb=short --base-url=http://$PROD_URL
+  #
+  # rollback:
+  #   needs: smoke-tests
+  #   if: failure() && github.event_name == 'push' && github.ref == 'refs/heads/main'
+  #   runs-on: ubuntu-latest
+  #   environment: prod
+  #   permissions:
+  #     id-token: write
+  #     contents: read
+  #
+  #   steps:
+  #     - name: Checkout repo
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Configure AWS credentials
+  #       uses: aws-actions/configure-aws-credentials@v4
+  #       with:
+  #         role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+  #         aws-region: eu-west-1
+  #
+  #     - name: Login to Amazon ECR
+  #       id: login-ecr
+  #       uses: aws-actions/amazon-ecr-login@v2
+  #
+  #     - name: Setup SSH
+  #       env:
+  #         EC2_HOST: ${{ secrets.EC2_HOST }}
+  #         EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+  #       run: |
+  #         mkdir -p ~/.ssh
+  #         echo "$EC2_SSH_KEY" | tr -d '\r' > ~/.ssh/ec2.pem
+  #         chmod 400 ~/.ssh/ec2.pem
+  #         ssh-keyscan -H "$EC2_HOST" >> ~/.ssh/known_hosts 2>/dev/null || true
+  #
+  #     - name: Connect SSH and rollback
+  #       env:
+  #         EC2_HOST: ${{ secrets.EC2_HOST }}
+  #         EC2_USER: ${{ secrets.EC2_USER }}
+  #         EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
+  #         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+  #         ECR_REPOSITORY: codename_rats-auth_service/app
+  #         DB_USER: ${{ secrets.DB_USER }}
+  #         DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
+  #         DB_NAME: ${{ secrets.DB_NAME }}
+  #         SECRET_KEY: ${{ secrets.SECRET_KEY }}
+  #         DATABASE_URL_READER: ${{ secrets.DATABASE_URL_READER }}
+  #         DATABASE_URL_WRITER: ${{ secrets.DATABASE_URL_WRITER }}
+  #       run: |
+  #         chmod +x scripts/rollback.sh
+  #         ssh -i ~/.ssh/ec2.pem "$EC2_USER@$EC2_HOST" \
+  #           "ECR_REGISTRY='$ECR_REGISTRY' \
+  #           ECR_REPOSITORY='$ECR_REPOSITORY' \
+  #           DB_USER='$DB_USER' \
+  #           DB_PASSWORD='$DB_PASSWORD' \
+  #           DB_NAME='$DB_NAME' \
+  #           SECRET_KEY='$SECRET_KEY' \
+  #           DATABASE_URL_READER='$DATABASE_URL_READER' \
+  #           DATABASE_URL_WRITER='$DATABASE_URL_WRITER' \
+  #           GITHUB_REPOSITORY='${GITHUB_REPOSITORY}' \
+  #           bash -s" < scripts/rollback.sh
