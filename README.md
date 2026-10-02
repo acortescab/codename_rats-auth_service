@@ -207,11 +207,25 @@ The service exposes versioned routes under `/v0`.
 
 - `POST /v0/auth/register`
 - `POST /v0/auth/login`
-- `POST /v0/auth/guest-login`
+- `POST /v0/auth/guest-login` (see [Guest login](#guest-login))
 - `POST /v0/auth/refresh-token`
 - `GET /v0/auth/me`
 - `POST /v0/auth/logout`
 - `POST /v0/auth/link-account`
+
+### Guest login
+
+A guest is identified by `device_id` and authenticated by a `device_secret` issued by the server:
+
+1. First call with only `device_id`: the guest is created and the response includes a `device_secret`.
+   The server stores only its hash and never returns it again, so the client must persist it
+   (keychain / secure storage).
+2. Every later call must send both `device_id` and `device_secret`. A missing or wrong secret returns `401`.
+3. Guests created before device secrets existed claim one on their next login (the response then includes
+   `device_secret`). Until that happens, `device_id` alone is accepted for them.
+
+If a client loses its `device_secret`, that guest can no longer log in (the account can still be reached if it
+was linked to an email with `/link-account`).
 
 ## Security Notes
 

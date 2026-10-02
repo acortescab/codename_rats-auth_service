@@ -3,13 +3,13 @@ import logging
 from pydantic import EmailStr
 
 from app.core.exceptions.auth import InvalidCredentials, InvalidRegistration, InvalidToken
-from app.core.security import verify_password
+from app.core.security import DUMMY_PASSWORD_HASH, verify_password
 from app.db.models.player import PlayerAccountType
 from app.schemas.auth import GuestLoginResponse, LoginResponse, MeResponse, RegisterResponse
 from app.services.player_service import PlayerService
 from app.services.token_service import TokenService
 
-logger = logging.getLogger("__name__")
+logger = logging.getLogger(__name__)
 
 class AuthService:
     """
@@ -24,13 +24,13 @@ class AuthService:
         self.player_service = player_service
         self.token_service = token_service
 
-    def guest_login(self, device_id: str):
+    def guest_login(self, device_id: str, device_secret: str | None = None):
         """
         Handles guest login by checking for an existing player with the given device ID or creating a new one if none exists.
         Generates access and refresh tokens for the player and returns an AuthResponse 
         containing the player's information and tokens.
         """
-        player = self.player_service.get_or_create_guest(device_id)
+        player, issued_secret = self.player_service.get_or_create_guest(device_id, device_secret)
 
         access_token = self.token_service.create_access_token(player.id)
         refresh_token = self.token_service.create_refresh_token(player.id)
@@ -39,7 +39,8 @@ class AuthService:
             id=player.id, 
             name=player.name,
             access_token=access_token, 
-            refresh_token=refresh_token
+            refresh_token=refresh_token,
+            device_secret=issued_secret
         )
     
     def register_user(self, email: EmailStr, name: str, password: str):
@@ -72,16 +73,16 @@ class AuthService:
         """
         Logouts a player with valid token revoking it
         """
-        payload = self.token_service.decode_token(token)
+        payload = self.token_service.decode_token(token, "refresh")
 
         if not payload:
-            logger.info(f"payload decoding error for token: {token}")
+            logger.info("payload decoding error for refresh token")
             raise InvalidToken("Invalid token")
         
         jti = payload.get("jti")
 
         if not jti:
-            logger.info(f"payload jti error: {payload}")
+            logger.info("payload jti error")
             raise InvalidToken("Invalid token")
         
         self.token_service.revoke_token_by_jti(jti)
@@ -94,6 +95,7 @@ class AuthService:
  
         if not player:
             logger.info("valid email not found")
+            verify_password(password, DUMMY_PASSWORD_HASH)
             raise InvalidCredentials("Invalid login credentials")
         
         if not verify_password(password, player.password):
@@ -147,16 +149,16 @@ class AuthService:
         """
         Returns player from token
         """
-        payload = self.token_service.decode_token(token)
+        payload = self.token_service.decode_token(token, "access")
 
         if not payload:
-            logger.info(f"payload decoding error for token: {token}")
+            logger.info("payload decoding error for access token")
             raise InvalidToken("Invalid token")
         
         sub = payload.get("sub")
 
         if not sub:
-            logger.info(f"payload decoding error for token: {token}")
+            logger.info("payload sub error")
             raise InvalidToken("Invalid token")
 
         player = self.player_service.get_player_by_id(sub)
@@ -164,7 +166,7 @@ class AuthService:
         logger.info(f"sub value is {sub}")
 
         if not player:
-            logger.info(f"payload decoding error for token: {token} & {sub}")
+            logger.info(f"no player found for sub {sub}")
             raise InvalidToken("Invalid token")
         
         return player

@@ -1,8 +1,10 @@
 import logging
 from datetime import datetime, timezone
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.exceptions.auth import InvalidCredentials, InvalidRegistration
 from app.core.security import hash_password
 from app.db.models.player import Player, PlayerAccountType
 
@@ -38,20 +40,41 @@ class PlayerRepository:
             Player.id == player_id
         ).first()
 
-    def create_guest(self, device_id: str, name: str):
+    def create_guest(self, device_id: str, name: str, device_secret_hash: str | None = None):
         """
         Creates a new player guest.
         """
         player = Player(
             device_id=device_id,
+            device_secret_hash=device_secret_hash,
             name=name,
             account_type=PlayerAccountType.Guest
         )
 
         self.write_db.add(player)
-        self.write_db.commit()
+
+        try:
+            self.write_db.commit()
+        except IntegrityError:
+            # concurrent first login for the same device_id
+            self.write_db.rollback()
+            raise InvalidCredentials("Invalid device credentials")
+
         self.write_db.refresh(player)
         return player
+
+    def set_device_secret_if_unset(self, player_id, device_secret_hash: str) -> bool:
+        """
+        Stores a device secret only if the player has none yet.
+        The conditional UPDATE guarantees that exactly one concurrent claim wins.
+        """
+        rows = self.write_db.query(Player).filter(
+            Player.id == player_id,
+            Player.device_secret_hash.is_(None)
+        ).update({"device_secret_hash": device_secret_hash})
+
+        self.write_db.commit()
+        return rows > 0
     
     def create_user(self, email:str, name:str, password:str):
         """
@@ -65,9 +88,20 @@ class PlayerRepository:
         )
 
         self.write_db.add(player)
-        self.write_db.commit()
+        self._commit_registration()
         self.write_db.refresh(player)
         return player
+
+    def _commit_registration(self):
+        """
+        Commits a registration; a unique-constraint violation (e.g. a concurrent signup with the same
+        email) becomes an InvalidRegistration (409) instead of an unhandled 500.
+        """
+        try:
+            self.write_db.commit()
+        except IntegrityError:
+            self.write_db.rollback()
+            raise InvalidRegistration("Invalid registration")
 
     def update_last_login(self, id):
         """
@@ -76,6 +110,9 @@ class PlayerRepository:
         player = self.write_db.query(Player).filter(
             Player.id == id
         ).first()
+
+        if player is None:
+            return
 
         player.last_login = datetime.now(timezone.utc)
         self.write_db.commit()
@@ -97,12 +134,13 @@ class PlayerRepository:
         ).first()
 
         player.device_id = None
+        player.device_secret_hash = None
         player.email = email
         player.password = hash_password(password)
         player.name = name
         player.account_type = PlayerAccountType.Registered
 
-        self.write_db.commit()
+        self._commit_registration()
         self.write_db.refresh(player)
 
         return player

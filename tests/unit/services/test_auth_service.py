@@ -33,7 +33,7 @@ def test_guest_login_success():
     mock_player.id = uuid.uuid4()
     mock_player.name = "guest_123"
 
-    player_service.get_or_create_guest.return_value = mock_player
+    player_service.get_or_create_guest.return_value = (mock_player, "issued_secret")
 
     token_service.create_access_token.return_value = "access_token_mock"
     token_service.create_refresh_token.return_value = "refresh_token_mock"
@@ -44,7 +44,7 @@ def test_guest_login_success():
     result = auth_service.guest_login("device_123")
 
     # Assert
-    player_service.get_or_create_guest.assert_called_once_with("device_123")
+    player_service.get_or_create_guest.assert_called_once_with("device_123", None)
     token_service.create_access_token.assert_called_once_with(mock_player.id)
     token_service.create_refresh_token.assert_called_once_with(mock_player.id)
 
@@ -53,6 +53,7 @@ def test_guest_login_success():
     assert result.name == mock_player.name
     assert result.access_token == "access_token_mock"
     assert result.refresh_token == "refresh_token_mock"
+    assert result.device_secret == "issued_secret"
 
 def test_guest_login_empty_device_id_raises_error():
     """
@@ -100,7 +101,7 @@ def test_me_success():
     result = auth_service.me("valid_token")
 
     # Assert
-    token_service.decode_token.assert_called_once_with("valid_token")
+    token_service.decode_token.assert_called_once_with("valid_token", "access")
     player_service.get_player_by_id.assert_called_once_with(payload["sub"])
 
     assert result.id == mock_player.id
@@ -132,7 +133,7 @@ def test_logout_refresh_token():
     auth_service.logout_player(credentials)
 
     # Assert
-    token_service.decode_token.assert_called_once_with(credentials)
+    token_service.decode_token.assert_called_once_with(credentials, "refresh")
     token_service.revoke_token_by_jti.assert_called_once_with("token_123")
 
 def test_me_invalid_token():
@@ -346,3 +347,25 @@ def test_link_account_guest_not_found():
         assert False
     except InvalidRegistration:
         assert True
+
+def test_login_unknown_email_still_verifies_a_hash():
+    """
+    Unknown emails must cost the same bcrypt verification as known ones so response time
+    does not reveal which emails are registered.
+    """
+    from unittest.mock import MagicMock, patch
+
+    import pytest
+
+    from app.core.exceptions.auth import InvalidCredentials
+    from app.services.auth_service import AuthService
+
+    player_service = MagicMock()
+    player_service.get_player_by_email.return_value = None
+    service = AuthService(player_service, MagicMock())
+
+    with patch("app.services.auth_service.verify_password") as mock_verify:
+        with pytest.raises(InvalidCredentials):
+            service.login("nobody@example.com", "whatever1")
+
+    mock_verify.assert_called_once()
