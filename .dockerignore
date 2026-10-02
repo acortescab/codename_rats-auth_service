@@ -6,8 +6,10 @@ __pycache__/
 
 # Virtual environments
 venv/
+.env
 .env/
 .env.*
+secrets/
 *.venv/
 
 # Test and coverage

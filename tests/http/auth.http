@@ -2,7 +2,8 @@ POST http://localhost:8000/v0/auth/guest-login HTTP/1.1
 content-Type: application/json
 
 {
-  "device_id": "device_123"
+  "device_id": "device_123",
+  "device_secret": "<returned by the first guest-login, omit on the very first call>"
 }
 
 ###

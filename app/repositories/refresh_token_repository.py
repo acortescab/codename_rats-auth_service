@@ -1,6 +1,7 @@
 import hashlib
 import logging
 from datetime import datetime
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -38,22 +39,24 @@ class RefreshTokenRepository:
         self.write_db.commit()
         return db_token
     
-    def get_by_player_id(self, player_id: int):
+    def get_by_player_id(self, player_id: UUID | str):
         """
         Gets a token by player id
         """
         return self.read_db.query(RefreshToken).filter(
-            player_id == player_id
+            RefreshToken.player_id == player_id
         ).first()
     
-    def get_by_jti(self, jti: str, include_revoked: bool = False):
+    def get_by_jti(self, jti: str, include_revoked: bool = False, use_writer: bool = False):
         """
         Gets a token by jti.
         When include_revoked is True, it also returns revoked tokens to detect reuse.
+        When use_writer is True the primary is queried, so replica lag cannot hide a recent revocation.
         """
         logger.info(f"fetch token request with jti: {jti}, include_revoked={include_revoked}")
 
-        query = self.read_db.query(RefreshToken).filter(RefreshToken.jti == jti)
+        db = self.write_db if use_writer else self.read_db
+        query = db.query(RefreshToken).filter(RefreshToken.jti == jti)
 
         if not include_revoked:
             query = query.filter(~RefreshToken.revoked)
@@ -92,7 +95,7 @@ class RefreshTokenRepository:
         self.write_db.commit()
         return rows > 0
     
-    def revoke_by_player_id(self, player_id: int):
+    def revoke_by_player_id(self, player_id: UUID | str):
         """
         Revokes a token by player id
         """

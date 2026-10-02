@@ -24,21 +24,23 @@ logging.getLogger("uvicorn").setLevel(logging.INFO)
 logging.getLogger("uvicorn.access").setLevel(logging.INFO)
 logging.getLogger("uvicorn.error").setLevel(logging.INFO)
 
+logger = logging.getLogger(__name__)
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
     Lifespan function to manage application startup and shutdown events.
     """
-    print("Starting application...")
+    logger.info("Starting application...")
 
     try:
         validate_settings(get_settings())
     except RuntimeError as e:
-        print(f"Error validating settings: {e}")
+        logger.error(f"Error validating settings: {e}")
         sys.exit(1)
         
     yield 
-    print("Closing application resources...")
+    logger.info("Closing application resources...")
 
 def validate_settings(settings):
     """

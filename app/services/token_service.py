@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timedelta, timezone
+from uuid import UUID
 
 import jwt
 
@@ -21,12 +22,13 @@ class TokenService:
         self.settings = get_settings()
         self.repo = repo
     
-    def create_access_token(self, player_id: int) -> str:
+    def create_access_token(self, player_id: UUID | str) -> str:
         """
         Creates an access token for the given player ID. 
         """
         payload = {
             "sub": str(player_id),
+            "type": "access",
             "exp": datetime.now(timezone.utc) + timedelta(minutes=30),
             "iat": datetime.now(timezone.utc)
         }
@@ -38,7 +40,7 @@ class TokenService:
         Create a new refresh token and marks previous as revoked.
         If a token from the same family is reused after rotation, revoke the whole family.
         """
-        token = self.decode_token(refresh_token)
+        token = self.decode_token(refresh_token, "refresh")
 
         if not token:
             raise InvalidToken("Invalid token")
@@ -49,29 +51,39 @@ class TokenService:
         if not player_id or not jti:
             raise InvalidToken("Invalid token")
 
-        stored = self.get_token_by_jti(jti, include_revoked=True)
+        # Read from the primary: a replica could still show a token as active after it was rotated.
+        stored = self.get_token_by_jti(jti, include_revoked=True, use_writer=True)
 
         if not stored:
             raise InvalidToken("Not found or invalid token")
 
         if stored.revoked:
-            if stored.family_id:
-                self.repo.revoke_by_family_id(stored.family_id)
-            raise InvalidToken("Refresh token reused; family invalidated")
+            self._invalidate_family(stored)
+
+        # Claim the token with a conditional UPDATE (revoked = false -> true) BEFORE issuing new ones.
+        # Only one of several concurrent requests can win; the others are treated as reuse.
+        if not self.repo.revoke_by_jti(jti):
+            self._invalidate_family(stored)
 
         family_id = stored.family_id or str(uuid.uuid4())
 
         access_token = self.create_access_token(player_id)
         new_refresh_token = self.create_refresh_token(player_id, family_id)
 
-        self.repo.revoke_by_jti(jti)
-
         return {
             "access_token": access_token,
             "refresh_token": new_refresh_token
         }
 
-    def create_refresh_token(self, player_id: int, family_id: str = None) -> str:
+    def _invalidate_family(self, stored):
+        """
+        Revokes every active token of the family of a reused refresh token and rejects the request.
+        """
+        if stored.family_id:
+            self.repo.revoke_by_family_id(stored.family_id)
+        raise InvalidToken("Refresh token reused; family invalidated")
+
+    def create_refresh_token(self, player_id: UUID | str, family_id: str | None = None) -> str:
         """
         Creates a refresh token for the given player ID.
         Each refresh-token family shares the same family_id across rotations.
@@ -84,6 +96,7 @@ class TokenService:
             "sub": str(player_id),
             "jti": jti,
             "family_id": str(family_id),
+            "type": "refresh",
             "exp": expires_at,
             "iat": datetime.now(timezone.utc)
         }
@@ -99,17 +112,32 @@ class TokenService:
         """
         return jwt.encode(payload, self.settings.SECRET_KEY, algorithm=self.settings.ALGORITHM)
 
-    def decode_token(self, token):
+    def decode_token(self, token, token_type: str | None = None):
         """
         Decodes a token and returns the payload using the matching public key.
+        When token_type is given ("access" or "refresh"), the token's type claim must match.
+        Raises InvalidToken if the token is expired, malformed or of the wrong type.
         """
-        return jwt.decode(token, self.settings.public_key_pem, algorithms=[self.settings.ALGORITHM])
+        try:
+            payload = jwt.decode(
+                token,
+                self.settings.public_key_pem,
+                algorithms=[self.settings.ALGORITHM],
+                options={"require": ["exp", "iat", "sub"]},
+            )
+        except jwt.PyJWTError:
+            raise InvalidToken("Invalid token")
+
+        if token_type and payload.get("type") != token_type:
+            raise InvalidToken("Invalid token")
+
+        return payload
     
-    def get_token_by_jti(self, jti: str, include_revoked: bool = False):
+    def get_token_by_jti(self, jti: str, include_revoked: bool = False, use_writer: bool = False):
         """
         Get refresh token by jti.
         """
-        return self.repo.get_by_jti(jti, include_revoked=include_revoked)
+        return self.repo.get_by_jti(jti, include_revoked=include_revoked, use_writer=use_writer)
     
     def revoke_token_by_jti(self, jti: str):
         """
@@ -120,7 +148,7 @@ class TokenService:
         if not revoked:
             raise InvalidToken("Invalid or revoked token")
         
-    def revoke_token_by_player_id(self, player_id: int):
+    def revoke_token_by_player_id(self, player_id: UUID | str):
         """
         Revokes token by player_id
         """
