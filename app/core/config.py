@@ -1,5 +1,5 @@
 import base64
-from functools import lru_cache
+from functools import cached_property, lru_cache
 from pathlib import Path
 
 from cryptography.hazmat.primitives import serialization
@@ -51,7 +51,7 @@ class Settings(BaseSettings):
         """
         return self.ENV == "dev"
 
-    @property
+    @cached_property
     def public_key_pem(self) -> str:
         """Return the matching RSA public key for the configured private key."""
         if not self.SECRET_KEY:

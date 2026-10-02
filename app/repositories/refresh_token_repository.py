@@ -1,6 +1,7 @@
 import hashlib
 import logging
 from datetime import datetime
+from uuid import UUID
 
 from sqlalchemy.orm import Session
 
@@ -38,7 +39,7 @@ class RefreshTokenRepository:
         self.write_db.commit()
         return db_token
     
-    def get_by_player_id(self, player_id: int):
+    def get_by_player_id(self, player_id: UUID | str):
         """
         Gets a token by player id
         """
@@ -94,7 +95,7 @@ class RefreshTokenRepository:
         self.write_db.commit()
         return rows > 0
     
-    def revoke_by_player_id(self, player_id: int):
+    def revoke_by_player_id(self, player_id: UUID | str):
         """
         Revokes a token by player id
         """

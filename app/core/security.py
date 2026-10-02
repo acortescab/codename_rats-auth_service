@@ -25,3 +25,6 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
     Verifies is the plain password matchs with the hashed one
     """
     return bcrypt.checkpw(plain_password.encode(), hashed_password.encode())
+
+# Verified against when a login email is unknown so response time does not reveal which emails exist
+DUMMY_PASSWORD_HASH = hash_password("dummy-password-for-timing")

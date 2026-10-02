@@ -1,8 +1,10 @@
 import logging
 from datetime import datetime, timezone
 
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from app.core.exceptions.auth import InvalidRegistration
 from app.core.security import hash_password
 from app.db.models.player import Player, PlayerAccountType
 
@@ -65,9 +67,20 @@ class PlayerRepository:
         )
 
         self.write_db.add(player)
-        self.write_db.commit()
+        self._commit_registration()
         self.write_db.refresh(player)
         return player
+
+    def _commit_registration(self):
+        """
+        Commits a registration; a unique-constraint violation (e.g. a concurrent signup with the same
+        email) becomes an InvalidRegistration (409) instead of an unhandled 500.
+        """
+        try:
+            self.write_db.commit()
+        except IntegrityError:
+            self.write_db.rollback()
+            raise InvalidRegistration("Invalid registration")
 
     def update_last_login(self, id):
         """
@@ -76,6 +89,9 @@ class PlayerRepository:
         player = self.write_db.query(Player).filter(
             Player.id == id
         ).first()
+
+        if player is None:
+            return
 
         player.last_login = datetime.now(timezone.utc)
         self.write_db.commit()
@@ -102,7 +118,7 @@ class PlayerRepository:
         player.name = name
         player.account_type = PlayerAccountType.Registered
 
-        self.write_db.commit()
+        self._commit_registration()
         self.write_db.refresh(player)
 
         return player

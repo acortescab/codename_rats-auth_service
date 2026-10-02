@@ -3,7 +3,7 @@ import logging
 from pydantic import EmailStr
 
 from app.core.exceptions.auth import InvalidCredentials, InvalidRegistration, InvalidToken
-from app.core.security import verify_password
+from app.core.security import DUMMY_PASSWORD_HASH, verify_password
 from app.db.models.player import PlayerAccountType
 from app.schemas.auth import GuestLoginResponse, LoginResponse, MeResponse, RegisterResponse
 from app.services.player_service import PlayerService
@@ -94,6 +94,7 @@ class AuthService:
  
         if not player:
             logger.info("valid email not found")
+            verify_password(password, DUMMY_PASSWORD_HASH)
             raise InvalidCredentials("Invalid login credentials")
         
         if not verify_password(password, player.password):

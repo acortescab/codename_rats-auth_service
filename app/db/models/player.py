@@ -10,7 +10,7 @@ from app.db.base import Base
 
 class PlayerAccountType(str, Enum):
     """
-    Enum for Encryptation algorithm
+    Enum for the type of player account
     """
     Guest = "guest"
     Registered = "registered"

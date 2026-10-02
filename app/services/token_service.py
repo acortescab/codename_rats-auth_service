@@ -1,5 +1,6 @@
 import uuid
 from datetime import datetime, timedelta, timezone
+from uuid import UUID
 
 import jwt
 
@@ -21,7 +22,7 @@ class TokenService:
         self.settings = get_settings()
         self.repo = repo
     
-    def create_access_token(self, player_id: int) -> str:
+    def create_access_token(self, player_id: UUID | str) -> str:
         """
         Creates an access token for the given player ID. 
         """
@@ -82,7 +83,7 @@ class TokenService:
             self.repo.revoke_by_family_id(stored.family_id)
         raise InvalidToken("Refresh token reused; family invalidated")
 
-    def create_refresh_token(self, player_id: int, family_id: str = None) -> str:
+    def create_refresh_token(self, player_id: UUID | str, family_id: str | None = None) -> str:
         """
         Creates a refresh token for the given player ID.
         Each refresh-token family shares the same family_id across rotations.
@@ -147,7 +148,7 @@ class TokenService:
         if not revoked:
             raise InvalidToken("Invalid or revoked token")
         
-    def revoke_token_by_player_id(self, player_id: int):
+    def revoke_token_by_player_id(self, player_id: UUID | str):
         """
         Revokes token by player_id
         """

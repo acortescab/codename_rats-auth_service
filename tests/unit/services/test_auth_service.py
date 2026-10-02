@@ -346,3 +346,25 @@ def test_link_account_guest_not_found():
         assert False
     except InvalidRegistration:
         assert True
+
+def test_login_unknown_email_still_verifies_a_hash():
+    """
+    Unknown emails must cost the same bcrypt verification as known ones so response time
+    does not reveal which emails are registered.
+    """
+    from unittest.mock import MagicMock, patch
+
+    import pytest
+
+    from app.core.exceptions.auth import InvalidCredentials
+    from app.services.auth_service import AuthService
+
+    player_service = MagicMock()
+    player_service.get_player_by_email.return_value = None
+    service = AuthService(player_service, MagicMock())
+
+    with patch("app.services.auth_service.verify_password") as mock_verify:
+        with pytest.raises(InvalidCredentials):
+            service.login("nobody@example.com", "whatever1")
+
+    mock_verify.assert_called_once()
