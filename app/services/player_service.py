@@ -37,8 +37,6 @@ class PlayerService:
         if player:
             raise InvalidRegistration("Email is already in use")
         
-        print(f"password is {password}")
-
         return self.repo.create_user(email, name, password)
     
     def get_player_by_id(self, player_id: str):

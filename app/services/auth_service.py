@@ -9,7 +9,7 @@ from app.schemas.auth import GuestLoginResponse, LoginResponse, MeResponse, Regi
 from app.services.player_service import PlayerService
 from app.services.token_service import TokenService
 
-logger = logging.getLogger("__name__")
+logger = logging.getLogger(__name__)
 
 class AuthService:
     """
@@ -72,16 +72,16 @@ class AuthService:
         """
         Logouts a player with valid token revoking it
         """
-        payload = self.token_service.decode_token(token)
+        payload = self.token_service.decode_token(token, "refresh")
 
         if not payload:
-            logger.info(f"payload decoding error for token: {token}")
+            logger.info("payload decoding error for refresh token")
             raise InvalidToken("Invalid token")
         
         jti = payload.get("jti")
 
         if not jti:
-            logger.info(f"payload jti error: {payload}")
+            logger.info("payload jti error")
             raise InvalidToken("Invalid token")
         
         self.token_service.revoke_token_by_jti(jti)
@@ -147,16 +147,16 @@ class AuthService:
         """
         Returns player from token
         """
-        payload = self.token_service.decode_token(token)
+        payload = self.token_service.decode_token(token, "access")
 
         if not payload:
-            logger.info(f"payload decoding error for token: {token}")
+            logger.info("payload decoding error for access token")
             raise InvalidToken("Invalid token")
         
         sub = payload.get("sub")
 
         if not sub:
-            logger.info(f"payload decoding error for token: {token}")
+            logger.info("payload sub error")
             raise InvalidToken("Invalid token")
 
         player = self.player_service.get_player_by_id(sub)
@@ -164,7 +164,7 @@ class AuthService:
         logger.info(f"sub value is {sub}")
 
         if not player:
-            logger.info(f"payload decoding error for token: {token} & {sub}")
+            logger.info(f"no player found for sub {sub}")
             raise InvalidToken("Invalid token")
         
         return player

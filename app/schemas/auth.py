@@ -9,7 +9,7 @@ class GuestLoginRequest(BaseModel):
     """
     Request model for guest login endpoint.
     """
-    device_id: str
+    device_id: str = Field(min_length=8, max_length=128)
 
 class GuestLoginResponse(BaseModel):
     """
@@ -51,7 +51,7 @@ class RegisterRequest(BaseModel):
     Request for register
     """
     email: EmailStr
-    name: str
+    name: str = Field(min_length=1, max_length=64)
     password: str = Field(
         min_length=8, 
         max_length=128
@@ -60,6 +60,9 @@ class RegisterRequest(BaseModel):
     @field_validator("password")
     @classmethod
     def validate_password(cls, v):
+        # bcrypt only hashes the first 72 bytes and newer versions reject longer input
+        if len(v.encode("utf-8")) > 72:
+            raise ValueError("Password must be at most 72 bytes")
         if not any(c.isalpha() for c in v):
             raise ValueError("Password must contain at least one letter")
         if not any(c.isdigit() for c in v):

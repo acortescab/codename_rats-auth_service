@@ -100,7 +100,7 @@ def test_me_success():
     result = auth_service.me("valid_token")
 
     # Assert
-    token_service.decode_token.assert_called_once_with("valid_token")
+    token_service.decode_token.assert_called_once_with("valid_token", "access")
     player_service.get_player_by_id.assert_called_once_with(payload["sub"])
 
     assert result.id == mock_player.id
@@ -132,7 +132,7 @@ def test_logout_refresh_token():
     auth_service.logout_player(credentials)
 
     # Assert
-    token_service.decode_token.assert_called_once_with(credentials)
+    token_service.decode_token.assert_called_once_with(credentials, "refresh")
     token_service.revoke_token_by_jti.assert_called_once_with("token_123")
 
 def test_me_invalid_token():

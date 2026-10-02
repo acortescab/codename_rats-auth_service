@@ -27,6 +27,7 @@ class TokenService:
         """
         payload = {
             "sub": str(player_id),
+            "type": "access",
             "exp": datetime.now(timezone.utc) + timedelta(minutes=30),
             "iat": datetime.now(timezone.utc)
         }
@@ -38,7 +39,7 @@ class TokenService:
         Create a new refresh token and marks previous as revoked.
         If a token from the same family is reused after rotation, revoke the whole family.
         """
-        token = self.decode_token(refresh_token)
+        token = self.decode_token(refresh_token, "refresh")
 
         if not token:
             raise InvalidToken("Invalid token")
@@ -84,6 +85,7 @@ class TokenService:
             "sub": str(player_id),
             "jti": jti,
             "family_id": str(family_id),
+            "type": "refresh",
             "exp": expires_at,
             "iat": datetime.now(timezone.utc)
         }
@@ -99,11 +101,26 @@ class TokenService:
         """
         return jwt.encode(payload, self.settings.SECRET_KEY, algorithm=self.settings.ALGORITHM)
 
-    def decode_token(self, token):
+    def decode_token(self, token, token_type: str | None = None):
         """
         Decodes a token and returns the payload using the matching public key.
+        When token_type is given ("access" or "refresh"), the token's type claim must match.
+        Raises InvalidToken if the token is expired, malformed or of the wrong type.
         """
-        return jwt.decode(token, self.settings.public_key_pem, algorithms=[self.settings.ALGORITHM])
+        try:
+            payload = jwt.decode(
+                token,
+                self.settings.public_key_pem,
+                algorithms=[self.settings.ALGORITHM],
+                options={"require": ["exp", "iat", "sub"]},
+            )
+        except jwt.PyJWTError:
+            raise InvalidToken("Invalid token")
+
+        if token_type and payload.get("type") != token_type:
+            raise InvalidToken("Invalid token")
+
+        return payload
     
     def get_token_by_jti(self, jti: str, include_revoked: bool = False):
         """

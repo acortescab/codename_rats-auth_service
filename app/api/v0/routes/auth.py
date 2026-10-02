@@ -37,7 +37,8 @@ def guest_login(request: Request, payload: GuestLoginRequest, service: AuthServi
     return service.guest_login(payload.device_id)
 
 @router.post("/refresh-token", response_model=RefreshTokenResponse)
-def refresh_token(payload: RefreshTokenRequest, service: TokenServiceDep):
+@limiter.limit("30/minute")
+def refresh_token(request: Request, payload: RefreshTokenRequest, service: TokenServiceDep):
     """
     Endpoint for refresh token.
     """
@@ -69,7 +70,8 @@ def logout(token: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)
         raise HTTPException(status_code=401, detail=str(e))
     
 @router.post("/register", response_model=RegisterResponse)
-def register(payload: RegisterRequest, service: AuthServiceDep):
+@limiter.limit("10/minute")
+def register(request: Request, payload: RegisterRequest, service: AuthServiceDep):
     """
     Endpoint for user register
     """
@@ -78,8 +80,8 @@ def register(payload: RegisterRequest, service: AuthServiceDep):
     except InvalidRegistration as e:
         raise HTTPException(status_code=409, detail=str(e))
 
-@limiter.limit("20/minute")
 @router.post("/login", response_model=LoginResponse)
+@limiter.limit("10/minute")
 def login(request: Request, payload: LoginRequest, service: AuthServiceDep):
     """
     Endpoint for login
@@ -90,7 +92,8 @@ def login(request: Request, payload: LoginRequest, service: AuthServiceDep):
         raise HTTPException(status_code=401, detail=str(e))
     
 @router.post("/link-account", response_model=RegisterResponse)
-def link_account(payload: RegisterRequest, token: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)], 
+@limiter.limit("10/minute")
+def link_account(request: Request, payload: RegisterRequest, token: Annotated[HTTPAuthorizationCredentials, Depends(oauth2_scheme)], 
                  service: AuthServiceDep):
     """
     Endpoint for link account
