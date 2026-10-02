@@ -1,3 +1,6 @@
+import hashlib
+import hmac
+import secrets
 from enum import Enum
 
 import bcrypt
@@ -28,3 +31,22 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 # Verified against when a login email is unknown so response time does not reveal which emails exist
 DUMMY_PASSWORD_HASH = hash_password("dummy-password-for-timing")
+
+def generate_device_secret() -> str:
+    """
+    Creates a high-entropy secret that proves possession of a guest device
+    """
+    return secrets.token_urlsafe(32)
+
+def hash_device_secret(secret: str) -> str:
+    """
+    Hashes a device secret. SHA-256 is enough because the secret is random and high-entropy,
+    unlike a user-chosen password.
+    """
+    return hashlib.sha256(secret.encode()).hexdigest()
+
+def verify_device_secret(secret: str, secret_hash: str) -> bool:
+    """
+    Constant-time check of a device secret against its stored hash
+    """
+    return hmac.compare_digest(hash_device_secret(secret), secret_hash)

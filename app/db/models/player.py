@@ -24,6 +24,8 @@ class Player(Base):
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     device_id = Column(String, unique=True, nullable=True)
+    # SHA-256 of the secret issued on first guest login; NULL for guests created before it existed
+    device_secret_hash = Column(String, nullable=True)
     
     email = Column(String, unique=True, index=True, nullable=True)
     password = Column(String, nullable=True)

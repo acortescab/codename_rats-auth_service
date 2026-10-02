@@ -33,7 +33,7 @@ def test_guest_login_success():
     mock_player.id = uuid.uuid4()
     mock_player.name = "guest_123"
 
-    player_service.get_or_create_guest.return_value = mock_player
+    player_service.get_or_create_guest.return_value = (mock_player, "issued_secret")
 
     token_service.create_access_token.return_value = "access_token_mock"
     token_service.create_refresh_token.return_value = "refresh_token_mock"
@@ -44,7 +44,7 @@ def test_guest_login_success():
     result = auth_service.guest_login("device_123")
 
     # Assert
-    player_service.get_or_create_guest.assert_called_once_with("device_123")
+    player_service.get_or_create_guest.assert_called_once_with("device_123", None)
     token_service.create_access_token.assert_called_once_with(mock_player.id)
     token_service.create_refresh_token.assert_called_once_with(mock_player.id)
 
@@ -53,6 +53,7 @@ def test_guest_login_success():
     assert result.name == mock_player.name
     assert result.access_token == "access_token_mock"
     assert result.refresh_token == "refresh_token_mock"
+    assert result.device_secret == "issued_secret"
 
 def test_guest_login_empty_device_id_raises_error():
     """

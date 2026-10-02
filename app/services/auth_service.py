@@ -24,13 +24,13 @@ class AuthService:
         self.player_service = player_service
         self.token_service = token_service
 
-    def guest_login(self, device_id: str):
+    def guest_login(self, device_id: str, device_secret: str | None = None):
         """
         Handles guest login by checking for an existing player with the given device ID or creating a new one if none exists.
         Generates access and refresh tokens for the player and returns an AuthResponse 
         containing the player's information and tokens.
         """
-        player = self.player_service.get_or_create_guest(device_id)
+        player, issued_secret = self.player_service.get_or_create_guest(device_id, device_secret)
 
         access_token = self.token_service.create_access_token(player.id)
         refresh_token = self.token_service.create_refresh_token(player.id)
@@ -39,7 +39,8 @@ class AuthService:
             id=player.id, 
             name=player.name,
             access_token=access_token, 
-            refresh_token=refresh_token
+            refresh_token=refresh_token,
+            device_secret=issued_secret
         )
     
     def register_user(self, email: EmailStr, name: str, password: str):

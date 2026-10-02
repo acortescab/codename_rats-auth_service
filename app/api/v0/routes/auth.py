@@ -34,7 +34,10 @@ def guest_login(request: Request, payload: GuestLoginRequest, service: AuthServi
     """
     Endpoint for guest login.
     """
-    return service.guest_login(payload.device_id)
+    try:
+        return service.guest_login(payload.device_id, payload.device_secret)
+    except InvalidCredentials as e:
+        raise HTTPException(status_code=401, detail=str(e))
 
 @router.post("/refresh-token", response_model=RefreshTokenResponse)
 @limiter.limit("30/minute")

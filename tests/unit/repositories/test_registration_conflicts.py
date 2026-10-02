@@ -40,3 +40,25 @@ def test_update_last_login_unknown_player_is_a_noop():
     repo.update_last_login("missing")
 
     write_db.commit.assert_not_called()
+
+
+def test_create_guest_concurrent_duplicate_device_is_rejected():
+    """Two first logins racing on the same device_id: the loser must not get a second account."""
+    from app.core.exceptions.auth import InvalidCredentials
+
+    repo, write_db = _repo_with_integrity_error()
+
+    with pytest.raises(InvalidCredentials):
+        repo.create_guest("device_12345", "guest-abc", "hash")
+
+    write_db.rollback.assert_called_once()
+
+
+@pytest.mark.parametrize("rows,expected", [(1, True), (0, False)])
+def test_set_device_secret_if_unset_reports_whether_it_won(rows, expected):
+    write_db = MagicMock()
+    write_db.query.return_value.filter.return_value.update.return_value = rows
+    repo = PlayerRepository(write_db, MagicMock())
+
+    assert repo.set_device_secret_if_unset("player-id", "hash") is expected
+    write_db.commit.assert_called_once()

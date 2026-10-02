@@ -281,11 +281,11 @@ async def test_guest_link_login(async_client, get_app, db_session_writer):
         assert login_res.status_code == 200
 
         data = login_res.json()
-        refresh_token = data["refresh_token"]
+        access_token = data["access_token"]
 
         link_res = await async_client.post(
             "/v0/auth/link-account",
-            headers={"Authorization": f"Bearer {refresh_token}"},
+            headers={"Authorization": f"Bearer {access_token}"},
             json={
                 "email": "email@email.com",
                 "password": "12345as22134",
@@ -306,4 +306,46 @@ async def test_guest_link_login(async_client, get_app, db_session_writer):
         assert login_res.status_code == 200
     finally:
         # revert functions override
+        get_app.dependency_overrides.clear()
+
+
+@pytest.mark.asyncio
+async def test_guest_login_requires_device_secret(async_client, get_app, db_session_writer):
+    """
+    E2E test for the device secret: issued once, then required on every later guest login
+    """
+    get_app.dependency_overrides[get_write_db] = lambda: db_session_writer
+    get_app.dependency_overrides[get_read_db] = lambda: db_session_writer
+
+    try:
+        first = await async_client.post(
+            "/v0/auth/guest-login",
+            json={"device_id": "device_secret_1"}
+        )
+        assert first.status_code == 200
+        device_secret = first.json()["device_secret"]
+        assert device_secret
+
+        # same device_id without the secret is rejected
+        no_secret = await async_client.post(
+            "/v0/auth/guest-login",
+            json={"device_id": "device_secret_1"}
+        )
+        assert no_secret.status_code == 401
+
+        wrong_secret = await async_client.post(
+            "/v0/auth/guest-login",
+            json={"device_id": "device_secret_1", "device_secret": "x" * 43}
+        )
+        assert wrong_secret.status_code == 401
+
+        # correct secret works and is not issued again
+        again = await async_client.post(
+            "/v0/auth/guest-login",
+            json={"device_id": "device_secret_1", "device_secret": device_secret}
+        )
+        assert again.status_code == 200
+        assert again.json()["device_secret"] is None
+        assert again.json()["id"] == first.json()["id"]
+    finally:
         get_app.dependency_overrides.clear()

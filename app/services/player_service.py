@@ -1,6 +1,7 @@
 from uuid import uuid4
 
-from app.core.exceptions.auth import InvalidRegistration
+from app.core.exceptions.auth import InvalidCredentials, InvalidRegistration
+from app.core.security import generate_device_secret, hash_device_secret, verify_device_secret
 from app.repositories.player_repository import PlayerRepository
 
 
@@ -14,19 +15,39 @@ class PlayerService:
         """
         self.repo = repo
         
-    def get_or_create_guest(self, device_id: str):
+    def get_or_create_guest(self, device_id: str, device_secret: str | None = None):
         """
-        Gets an existing guest player or creates a new one if none exists.
+        Authenticates a guest by device_id + device_secret, creating the guest on first login.
+        Returns (player, issued_secret). issued_secret is only set when a secret was just created
+        (new guest, or a legacy guest without a secret claiming one); the client must store it.
+        Raises InvalidCredentials when the guest exists and the secret is missing or wrong.
         """
         player = self.repo.get_by_device_id(device_id)
 
-        if player:
+        if not player:
+            secret = generate_device_secret()
+            name = self.generate_guest_name()
+            player = self.repo.create_guest(
+                device_id=device_id, name=name, device_secret_hash=hash_device_secret(secret)
+            )
+            return player, secret
+
+        if player.device_secret_hash is None:
+            # Guest created before device secrets existed: the first login claims one. The conditional
+            # update means only one concurrent claim wins.
+            secret = generate_device_secret()
+
+            if not self.repo.set_device_secret_if_unset(player.id, hash_device_secret(secret)):
+                raise InvalidCredentials("Invalid device credentials")
+
             self.update_last_login(player.id)
-            return player
+            return player, secret
 
-        name = self.generate_guest_name()
+        if not device_secret or not verify_device_secret(device_secret, player.device_secret_hash):
+            raise InvalidCredentials("Invalid device credentials")
 
-        return self.repo.create_guest(device_id=device_id, name=name)
+        self.update_last_login(player.id)
+        return player, None
     
     def register_user(self, email:str, password:str, name: str):
         """

@@ -10,6 +10,8 @@ class GuestLoginRequest(BaseModel):
     Request model for guest login endpoint.
     """
     device_id: str = Field(min_length=8, max_length=128)
+    # required once the server has issued one for this device_id
+    device_secret: str | None = Field(default=None, min_length=32, max_length=128)
 
 class GuestLoginResponse(BaseModel):
     """
@@ -19,6 +21,8 @@ class GuestLoginResponse(BaseModel):
     name: str
     access_token: str
     refresh_token: str
+    # only present when the server just issued it; the client must store it and send it on later logins
+    device_secret: str | None = None
 
 
 # Refresh token schemas
