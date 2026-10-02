@@ -50,27 +50,37 @@ class TokenService:
         if not player_id or not jti:
             raise InvalidToken("Invalid token")
 
-        stored = self.get_token_by_jti(jti, include_revoked=True)
+        # Read from the primary: a replica could still show a token as active after it was rotated.
+        stored = self.get_token_by_jti(jti, include_revoked=True, use_writer=True)
 
         if not stored:
             raise InvalidToken("Not found or invalid token")
 
         if stored.revoked:
-            if stored.family_id:
-                self.repo.revoke_by_family_id(stored.family_id)
-            raise InvalidToken("Refresh token reused; family invalidated")
+            self._invalidate_family(stored)
+
+        # Claim the token with a conditional UPDATE (revoked = false -> true) BEFORE issuing new ones.
+        # Only one of several concurrent requests can win; the others are treated as reuse.
+        if not self.repo.revoke_by_jti(jti):
+            self._invalidate_family(stored)
 
         family_id = stored.family_id or str(uuid.uuid4())
 
         access_token = self.create_access_token(player_id)
         new_refresh_token = self.create_refresh_token(player_id, family_id)
 
-        self.repo.revoke_by_jti(jti)
-
         return {
             "access_token": access_token,
             "refresh_token": new_refresh_token
         }
+
+    def _invalidate_family(self, stored):
+        """
+        Revokes every active token of the family of a reused refresh token and rejects the request.
+        """
+        if stored.family_id:
+            self.repo.revoke_by_family_id(stored.family_id)
+        raise InvalidToken("Refresh token reused; family invalidated")
 
     def create_refresh_token(self, player_id: int, family_id: str = None) -> str:
         """
@@ -122,11 +132,11 @@ class TokenService:
 
         return payload
     
-    def get_token_by_jti(self, jti: str, include_revoked: bool = False):
+    def get_token_by_jti(self, jti: str, include_revoked: bool = False, use_writer: bool = False):
         """
         Get refresh token by jti.
         """
-        return self.repo.get_by_jti(jti, include_revoked=include_revoked)
+        return self.repo.get_by_jti(jti, include_revoked=include_revoked, use_writer=use_writer)
     
     def revoke_token_by_jti(self, jti: str):
         """

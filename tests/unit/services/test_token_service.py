@@ -108,11 +108,12 @@ def test_refresh_token_rotates_valid_token_and_reuses_family_id():
         "app.services.token_service.jwt.encode",
         side_effect=["new_access_token", "new_refresh_token"],
     ):
-        mock_decode.return_value = {"sub": "1", "jti": "old-jti"}
+        mock_decode.return_value = {"sub": "1", "jti": "old-jti", "type": "refresh"}
 
         result = service.refresh_token("old_token")
 
     assert result == {"access_token": "new_access_token", "refresh_token": "new_refresh_token"}
+    repo.get_by_jti.assert_called_once_with("old-jti", include_revoked=True, use_writer=True)
     repo.revoke_by_jti.assert_called_once_with("old-jti")
     assert repo.create.call_args.args[0] == "1"
     assert repo.create.call_args.args[4] == family_id
@@ -131,7 +132,7 @@ def test_refresh_token_reuse_invalidates_family():
     )()
 
     with patch("app.services.token_service.jwt.decode") as mock_decode:
-        mock_decode.return_value = {"sub": "1", "jti": "old-jti"}
+        mock_decode.return_value = {"sub": "1", "jti": "old-jti", "type": "refresh"}
 
         with pytest.raises(InvalidToken, match="family"):
             service.refresh_token("reused_token")
@@ -205,3 +206,30 @@ def test_decode_token_rejects_wrong_token_type(signing_service):
 
     with pytest.raises(InvalidToken):
         signing_service.decode_token(access, "refresh")
+
+
+def test_refresh_token_lost_race_invalidates_family_and_issues_nothing():
+    """
+    If another request already claimed the token (conditional revoke updates 0 rows), this request is
+    treated as reuse: the family is revoked and no new token is created.
+    """
+    repo = cast(RefreshTokenRepository, create_autospec(RefreshTokenRepository))
+    service = TokenService(repo)
+    family_id = str(uuid.uuid4())
+
+    repo.get_by_jti.return_value = type(
+        "StoredToken", (), {"family_id": family_id, "revoked": False, "jti": "old-jti"}
+    )()
+    repo.revoke_by_jti.return_value = False
+
+    with patch("app.services.token_service.jwt.decode") as mock_decode, patch(
+        "app.services.token_service.jwt.encode"
+    ) as mock_encode:
+        mock_decode.return_value = {"sub": "1", "jti": "old-jti", "type": "refresh"}
+
+        with pytest.raises(InvalidToken, match="family"):
+            service.refresh_token("old_token")
+
+    repo.revoke_by_family_id.assert_called_once_with(family_id)
+    repo.create.assert_not_called()
+    mock_encode.assert_not_called()
